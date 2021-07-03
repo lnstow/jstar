@@ -4,8 +4,8 @@ class Bridge {
 
     static async loadData() {
         await SaveData.openDB()
-        let itemTable = await SaveData.loadFromDB("jav_item")
-        let listTable = await SaveData.loadFromDB("jav_list")
+        let itemTable = await SaveData.loadFromDB(ITEM_TABLE)
+        let listTable = await SaveData.loadFromDB(LIST_TABLE)
         let orderMap: string[] = SaveData.loadFromLocal()
         Bridge.ALL_DATA = { orderMap: orderMap, listTable: listTable, itemTable: itemTable }
 
@@ -28,9 +28,9 @@ class Bridge {
 
         if (orderMap.length == 0) {
             let newList = new StarList("listName")
-            let itemA = new JavDB("itemA")
-            let itemB = new JavDB("itemB")
-            let itemC = new JavDB("itemC")
+            let itemA = new JaDB("itemA")
+            let itemB = new JaDB("itemB")
+            let itemC = new JaDB("itemC")
             await Bridge.insertData(newList, 0)
             await Bridge.insertData(itemA, 0, 0)
             await Bridge.insertData(itemB, 0, 1)
@@ -58,10 +58,10 @@ class Bridge {
             allData.itemTable[data.sid] = data
 
             dataWrapper[data.sid] = data
-            SaveData.saveToDB(dataWrapper, "jav_item")
+            SaveData.saveToDB(dataWrapper, ITEM_TABLE)
             delete dataWrapper[data.sid]
             dataWrapper[list.name] = list
-            SaveData.saveToDB(dataWrapper, "jav_list")
+            SaveData.saveToDB(dataWrapper, LIST_TABLE)
             // } else { console.log("element exists") }
             // if (list.arr.indexOf(data.sid) == -1) {
             vueData.orderItem[row].splice(col + 1, 0, data)
@@ -74,7 +74,7 @@ class Bridge {
             allData.listTable[data.name] = data
 
             dataWrapper[data.name] = data
-            SaveData.saveToDB(dataWrapper, "jav_list")
+            SaveData.saveToDB(dataWrapper, LIST_TABLE)
             SaveData.saveToLocal(Bridge.ALL_DATA.orderMap)
 
             vueData.orderList.splice(row + 1, 0, data)
@@ -104,9 +104,9 @@ class Bridge {
 
         Vue.set(app, "orderList", [])
         Vue.set(app, "orderItem", [])
-        SaveData.deleteFromDb("jav_item")
-        SaveData.deleteFromDb("jav_list")
-        localStorage.removeItem("jav_map")
+        SaveData.deleteFromDb(ITEM_TABLE)
+        SaveData.deleteFromDb(LIST_TABLE)
+        localStorage.removeItem("ja_map")
         // SaveData.saveToLocal(Bridge.ALL_DATA.orderMap)
     }
 
@@ -117,9 +117,9 @@ class Bridge {
     static importData() {
         let arr: TableObj<item> = {}
         for (let i = 0; i < 350; i++) {
-            arr["item" + i] = new JavDB("item" + i)
+            arr["item" + i] = new JaDB("item" + i)
         }
-        SaveData.saveToDB(arr, "jav_item")
+        SaveData.saveToDB(arr, ITEM_TABLE)
     }
 
     static getVueData() {

@@ -36,7 +36,7 @@ window.addEventListener("load", function () {
                 Bridge.insertData(new StarList("newList" + listIndex), listIndex)
             },
             addItem: function (listIndex: number, itemIndex: number) {
-                Bridge.insertData(new JavDB("item" + itemIndex), listIndex, itemIndex)
+                Bridge.insertData(new JaDB("item" + itemIndex), listIndex, itemIndex)
             },
             deleteAll: function () {
                 Bridge.deleteData()

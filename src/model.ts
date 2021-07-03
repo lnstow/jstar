@@ -2,7 +2,7 @@ const ban = -1
 const noScore = 0
 const mark = 6
 type iScore = 1 | 2 | 3 | 4 | 5 | 0 | -1 | 6
-type iType = "JavDB" | "Jg0" | "JavBus" | "JavLib" | "NoMovie"
+type iType = "JaDB" | "Jg0" | "JaBus" | "JaLib" | "NoMovie"
 interface item {
     sid: string
     type: iType
@@ -31,9 +31,9 @@ function getTime(): string {
     return d.toISOString().slice(0, 13).replace("T", " ")
 }
 
-class JavDB implements item {
+class JaDB implements item {
     // sid: string
-    type: iType = "JavDB"
+    type: iType = "JaDB"
     // score: score
     // date: string
 
@@ -54,9 +54,11 @@ class StarList implements list {
 
 }
 
+const ITEM_TABLE = "ja_item"
+const LIST_TABLE = "ja_list"
 type TableName = {
-    "jav_item": item
-    "jav_list": list
+    [ITEM_TABLE]: item
+    [LIST_TABLE]: list
 }
 class SaveData {
     static DB: IDBDatabase | null = null
@@ -66,7 +68,7 @@ class SaveData {
     static openDB() {
         return new Promise((resolve, reject) => {
             if (SaveData.DB != null) resolve(SaveData.DB)
-            let request = window.indexedDB.open("javStar", 1)
+            let request = window.indexedDB.open("jaStar", 1)
             request.onsuccess = function () {
                 // console.log("open database")
                 SaveData.DB = request.result
@@ -77,12 +79,12 @@ class SaveData {
                 SaveData.DB = request.result
                 switch (event.newVersion) {
                     case 1:
-                        if (!SaveData.DB.objectStoreNames.contains("jav_item")) {
-                            SaveData.DB.createObjectStore("jav_item",
+                        if (!SaveData.DB.objectStoreNames.contains(ITEM_TABLE)) {
+                            SaveData.DB.createObjectStore(ITEM_TABLE,
                                 { autoIncrement: false, keyPath: "sid" })
                         }
-                        if (!SaveData.DB.objectStoreNames.contains("jav_list")) {
-                            SaveData.DB.createObjectStore("jav_list",
+                        if (!SaveData.DB.objectStoreNames.contains(LIST_TABLE)) {
+                            SaveData.DB.createObjectStore(LIST_TABLE,
                                 { autoIncrement: false, keyPath: "name" })
                             // store.createIndex("date", "date", { unique: false })
                         }
@@ -145,7 +147,7 @@ class SaveData {
                     = SaveData.DB.transaction(tableName, "readonly")
                         .objectStore(tableName).openCursor(null)
                 let arr: TableObj<TableName[T]> = {}
-                const isItem = tableName == "jav_item"
+                const isItem = tableName == ITEM_TABLE
                 request.onsuccess = () => {
                     let cursor = request.result
                     if (cursor) {
@@ -170,7 +172,7 @@ class SaveData {
                 let request: IDBRequest<IDBCursorWithValue | null>
                     = SaveData.DB.transaction(tableName, "readwrite")
                         .objectStore(tableName).openCursor(null)
-                const isItem = tableName == "jav_item"
+                const isItem = tableName == ITEM_TABLE
                 request.onsuccess = () => {
                     let cursor = request.result
                     if (cursor) {
@@ -185,11 +187,11 @@ class SaveData {
     }
 
     static saveToLocal(orderMap: string[]) {
-        localStorage.setItem("jav_map", orderMap.join("  "))
+        localStorage.setItem("ja_map", orderMap.join("  "))
     }
 
     static loadFromLocal(): string[] {
-        let orderMap = localStorage.getItem("jav_map")
+        let orderMap = localStorage.getItem("ja_map")
         return orderMap == null ? [] : orderMap.split("  ")
     }
 

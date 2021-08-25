@@ -186,13 +186,34 @@ class SaveData {
         })
     }
 
-    static saveToLocal(orderMap: string[]) {
+    static saveOrderMap(orderMap: string[]) {
         localStorage.setItem("ja_map", orderMap.join("  "))
     }
 
-    static loadFromLocal(): string[] {
+    static loadOrderMap(): string[] {
         let orderMap = localStorage.getItem("ja_map")
         return orderMap == null ? [] : orderMap.split("  ")
+    }
+
+    static saveDeleteTime() {
+        localStorage.setItem("deleteTime",
+            new Date().getTime().toString())
+    }
+
+    static loadDeleteTime(): number {
+        let time = localStorage.getItem("deleteTime")
+        return time == null ? -1 : Number.parseInt(time)
+    }
+
+    static saveUpdateTime(): number {
+        let time = new Date().getTime()
+        localStorage.setItem("updateTime", time.toString())
+        return time
+    }
+
+    static loadUpdateTime(): number {
+        let time = localStorage.getItem("updateTime")
+        return time == null ? -1 : Number.parseInt(time)
     }
 
     static saveToFile(data: item) {

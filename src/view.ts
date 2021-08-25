@@ -16,6 +16,7 @@ window.addEventListener("load", function () {
             return {
                 orderItem: [],
                 orderList: [],
+                updateTime: 0,
                 scoreColor: {
                     1: "green",
                     2: "teal",

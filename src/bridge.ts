@@ -1,12 +1,12 @@
 class Bridge {
     static ALL_DATA: { orderMap: string[], listTable: TableObj<list>, itemTable: TableObj<item> }
-    static VUE_DATA: { orderList: list[], orderItem: item[][] }
+    static VUE_DATA: { orderList: list[], orderItem: item[][], updateTime: number }
 
     static async loadData() {
         await SaveData.openDB()
         let itemTable = await SaveData.loadFromDB(ITEM_TABLE)
         let listTable = await SaveData.loadFromDB(LIST_TABLE)
-        let orderMap: string[] = SaveData.loadFromLocal()
+        let orderMap: string[] = SaveData.loadOrderMap()
         Bridge.ALL_DATA = { orderMap: orderMap, listTable: listTable, itemTable: itemTable }
 
         let orderItem: item[][] = []
@@ -24,7 +24,10 @@ class Bridge {
             }
             orderItem.push(arr)
         }
-        Bridge.VUE_DATA = { orderList: orderList, orderItem: orderItem }
+        Bridge.VUE_DATA = {
+            orderList: orderList, orderItem: orderItem,
+            updateTime: SaveData.loadUpdateTime()
+        }
 
         if (orderMap.length == 0) {
             let newList = new StarList("listName")
@@ -75,7 +78,7 @@ class Bridge {
 
             dataWrapper[data.name] = data
             SaveData.saveToDB(dataWrapper, LIST_TABLE)
-            SaveData.saveToLocal(Bridge.ALL_DATA.orderMap)
+            SaveData.saveOrderMap(Bridge.ALL_DATA.orderMap)
 
             vueData.orderList.splice(row + 1, 0, data)
             vueData.orderItem.splice(row + 1, 0, [])

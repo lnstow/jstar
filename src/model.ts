@@ -1,54 +1,67 @@
-const ban = -1
-const noScore = 0
-const mark = 6
-type iScore = 1 | 2 | 3 | 4 | 5 | 0 | -1 | 6
-type iType = "JaDB" | "Jg0" | "JaBus" | "JaLib" | "NoMovie"
-interface item {
+const ban = -5
+const mark = 10
+type iScore = 1 | 2 | 3 | 4 | 0 | typeof ban | typeof mark
+type iType = "JaDB" | "Jg0" | "JaBus" | "JaLib" | "Normal"
+// 不要在 Item或List 中定义非静态方法，
+// 因为从数据库读取出来的只有属性，
+// 只能调用 Item或List 类的静态方法
+interface Item {
     sid: string
     type: iType
     score: iScore
     date: string
-    get: () => string
+    extraInfo: string
 }
-interface list {
+interface List {
     name: string
     arr: string[]
-    alias: string[]
     date: string
+    extraInfo: string
 }
-type TableObj<T extends item | list> = {
-    [index: string]: T
-    [index: number]: never
-}
-
-function isItem(data: item | list): data is item {
-    return "sid" in data
+function isItem(data: Item | List): data is Item {
+    return "type" in data
 }
 function getTime(): string {
     // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD HH"
-    let d = new Date()
+    const d = new Date()
     d.setUTCHours(d.getUTCHours() - d.getTimezoneOffset() / 60)
-    return d.toISOString().slice(0, 13).replace("T", " ")
+    return d.toISOString().slice(0, 13).replace("T", "+")
 }
 
-class JaDB implements item {
-    // sid: string
-    type: iType = "JaDB"
-    // score: score
-    // date: string
+function mixItem(oldData: Item, newData: Item) {
+    oldData.score = newData.score
+    oldData.date = newData.date
+    oldData.extraInfo += newData.extraInfo
+    // const isJaDB = (d: Item): d is JaDB => d.type == "JaDB"
+    // if (isJaDB(oldData)) {
+    //     oldData.
+    // }
+    return oldData
+}
 
-    constructor(public sid: string, public score: iScore = noScore,
-        public date = getTime()) {
+class JaDB implements Item {
+    type: iType = "JaDB"
+    constructor(public sid: string, public score: iScore = 0,
+        public extraInfo = "", public date = getTime()) {
 
     }
 
-    get(): string {
+    static get(): string {
         return "string"
     }
 }
-class StarList implements list {
+
+class NormalItem implements Item {
+    type: iType = "Normal"
+    constructor(public sid: string, public score: iScore = 0,
+        public extraInfo = "", public date = getTime()) {
+
+    }
+}
+
+class NormalList implements List {
     constructor(public name: string, public arr: string[] = [],
-        public alias: string[] = [], public date: string = getTime()) {
+        public extraInfo: string = "", public date: string = getTime()) {
 
     }
 
@@ -56,35 +69,46 @@ class StarList implements list {
 
 const ITEM_TABLE = "ja_item"
 const LIST_TABLE = "ja_list"
-type TableName = {
-    [ITEM_TABLE]: item
-    [LIST_TABLE]: list
+type TableObj<T> = {
+    [index: string]: T
+    [index: number]: never
 }
-class SaveData {
-    static DB: IDBDatabase | null = null
+type TableType = {
+    [ITEM_TABLE]: Item
+    [LIST_TABLE]: List
+}
+
+class Repo {
+    private static DB: IDBDatabase
 
     // 如果同时有多个openDB请求，就会打开多个数据库连接，后面的覆盖前面的
     // 所以使用await等待数据库打开
     static openDB() {
-        return new Promise((resolve, reject) => {
-            if (SaveData.DB != null) resolve(SaveData.DB)
-            let request = window.indexedDB.open("jaStar", 1)
+        return new Promise<IDBDatabase>((resolve, reject) => {
+            if (Repo.DB != undefined) {
+                resolve(Repo.DB)
+                return
+            }
+            const request = window.indexedDB.open("jaStar", 1)
             request.onsuccess = function () {
                 // console.log("open database")
-                SaveData.DB = request.result
-                resolve(SaveData.DB)
+                Repo.DB = request.result
+                Repo.DB.onversionchange = function (this) {
+                    this.close()
+                }
+                resolve(Repo.DB)
             }
             request.onupgradeneeded = function (event) {
-                console.log("upgrade database")
-                SaveData.DB = request.result
+                // console.log("upgrade database")
+                Repo.DB = request.result
                 switch (event.newVersion) {
                     case 1:
-                        if (!SaveData.DB.objectStoreNames.contains(ITEM_TABLE)) {
-                            SaveData.DB.createObjectStore(ITEM_TABLE,
+                        if (!Repo.DB.objectStoreNames.contains(ITEM_TABLE)) {
+                            Repo.DB.createObjectStore(ITEM_TABLE,
                                 { autoIncrement: false, keyPath: "sid" })
                         }
-                        if (!SaveData.DB.objectStoreNames.contains(LIST_TABLE)) {
-                            SaveData.DB.createObjectStore(LIST_TABLE,
+                        if (!Repo.DB.objectStoreNames.contains(LIST_TABLE)) {
+                            Repo.DB.createObjectStore(LIST_TABLE,
                                 { autoIncrement: false, keyPath: "name" })
                             // store.createIndex("date", "date", { unique: false })
                         }
@@ -93,134 +117,137 @@ class SaveData {
                         break;
                 }
                 // 不要用resolve，因为更新时还没有成功打开数据库
-                // resolve(SaveData.DB)
+                // resolve(DataRepo.DB)
             }
             request.onerror = reject
         })
     }
 
-    static saveToDB(data: TableObj<item | list>, tableName: keyof TableName) {
+    static saveToDB<T extends keyof TableType>(tableName: T,
+        ...data: TableType[T][]) {
         return new Promise((resolve, reject) => {
-            if (SaveData.DB == null) {
-                reject("null db")
-            } else {
-                console.log("save to db")
-                let count = 0
-                let tx = SaveData.DB.transaction(tableName, "readwrite")
-                tx.oncomplete = () => {
-                    if (count == 0) {
-                        console.log("tx complete")
-                        resolve(data)
-                    } else
-                        console.warn("request count:" + count)
-                }
-                let store = tx.objectStore(tableName)
-                // TODO 遍历对象而不是数组
-                console.log(" key in data");
-
-                for (const key in data) {
-                    const element = data[key]
-                    console.log(element);
-
-                    // if (count++ % 1000 == 0) {
-                    //     tx = SaveData.DB.transaction(tableName, "readwrite")
-                    //     store = tx.objectStore(tableName)
-                    // }
-                    count++
-                    let request = store.put(element)
-                    request.onsuccess = () => count--
-                    request.onerror = reject
-                }
+            let count = 0
+            const tx = Repo.DB.transaction(tableName, "readwrite")
+            const store = tx.objectStore(tableName)
+            tx.oncomplete = () => {
+                if (count == 0) {
+                    console.log("tx complete")
+                    resolve(data)
+                } else
+                    console.warn(`request count:${count}`)
             }
+
+            for (const element of data) {
+                // console.log(element)
+
+                // if (count++ % 1000 == 0) {
+                //     tx = DataRepo.DB.transaction(tableName, "readwrite")
+                //     store = tx.objectStore(tableName)
+                // }
+                count++
+                const request = store.put(element)
+                request.onsuccess = () => count--
+                request.onerror = reject
+            }
+
         })
     }
 
-    static loadFromDB<T extends keyof TableName>(tableName: T):
-        Promise<TableObj<TableName[T]>> {
-        return new Promise((resolve, reject) => {
-            if (SaveData.DB == null) {
-                reject("null db")
-            } else {
-                console.log("load from db")
+    static loadFromDB<T extends keyof TableType>(tableName: T) {
+        return new Promise<TableObj<TableType[T]>>((resolve, reject) => {
 
-                let request: IDBRequest<IDBCursorWithValue | null>
-                    = SaveData.DB.transaction(tableName, "readonly")
-                        .objectStore(tableName).openCursor(null)
-                let arr: TableObj<TableName[T]> = {}
-                const isItem = tableName == ITEM_TABLE
-                request.onsuccess = () => {
-                    let cursor = request.result
-                    if (cursor) {
-                        arr[cursor.value[isItem ? "sid" : "name"] as string]
-                            = cursor.value
-                        cursor.continue()
-                    } else
-                        resolve(arr)
-                }
-                request.onerror = reject
+            const request: IDBRequest<IDBCursorWithValue | null>
+                = Repo.DB.transaction(tableName, "readonly")
+                    .objectStore(tableName).openCursor(null)
+            const isItem = tableName == ITEM_TABLE
+            const arr: TableObj<TableType[T]> = {}
+
+            request.onsuccess = () => {
+                const cursor = request.result
+                if (cursor) {
+                    arr[cursor.value[isItem ? "sid" : "name"] as string]
+                        = cursor.value
+                    cursor.continue()
+                } else
+                    resolve(arr)
             }
+            request.onerror = reject
         })
     }
 
-    static deleteFromDb(tableName: keyof TableName) {
-        return new Promise((resolve, reject) => {
-            if (SaveData.DB == null) {
-                reject("null db")
-            } else {
-                console.log("delete from db")
 
-                let request: IDBRequest<IDBCursorWithValue | null>
-                    = SaveData.DB.transaction(tableName, "readwrite")
-                        .objectStore(tableName).openCursor(null)
-                const isItem = tableName == ITEM_TABLE
-                request.onsuccess = () => {
-                    let cursor = request.result
-                    if (cursor) {
-                        cursor.delete()
-                        cursor.continue()
-                    } else
-                        resolve("ok")
-                }
-                request.onerror = reject
-            }
+    static deleteFromDb<T extends keyof TableType>(tableName: T,
+        ...data: TableType[T][]) {
+        return new Promise((resolve, reject) => {
+            const tx = Repo.DB.transaction(tableName, "readwrite")
+            const store = tx.objectStore(tableName)
+            const isItem = tableName == ITEM_TABLE
+
+            tx.oncomplete = () => resolve("delete ok")
+            tx.onerror = reject
+            tx.onabort = reject
+            data.forEach(element =>
+                store.delete(isItem ? (element as Item).sid : (element as List).name)
+            )
         })
+    }
+
+    static clearData() {
+        if (Repo.DB != undefined) {
+            Repo.DB = undefined as unknown as IDBDatabase
+            window.indexedDB.deleteDatabase("jaStar")
+        }
+        for (const key in Repo.lsKey) {
+            localStorage.removeItem((Repo.lsKey as TableObj<string>)[key])
+        }
+    }
+
+    static async resetData(data: AllData) {
+        Repo.clearData()
+        await Repo.openDB()
+
+        const items: Item[] = []
+        for (const key in data.itemTable)
+            items.push(data.itemTable[key])
+        await Repo.saveToDB(ITEM_TABLE, ...items)
+
+        const lists: List[] = []
+        for (const key in data.listTable)
+            lists.push(data.listTable[key])
+        await Repo.saveToDB(LIST_TABLE, ...lists)
+
+        Repo.saveOrderMap(data.orderMap)
+    }
+
+    private static lsKey = {
+        map: "ja_map",
+        updateTime: "ja_update_time",
+        theme: "ja_theme",
+        dark: "ja_dark"
     }
 
     static saveOrderMap(orderMap: string[]) {
-        localStorage.setItem("ja_map", orderMap.join("  "))
+        localStorage.setItem(Repo.lsKey.map, orderMap.join("$@`#"))
     }
 
     static loadOrderMap(): string[] {
-        let orderMap = localStorage.getItem("ja_map")
-        return orderMap == null ? [] : orderMap.split("  ")
-    }
-
-    static saveDeleteTime() {
-        localStorage.setItem("deleteTime",
-            new Date().getTime().toString())
-    }
-
-    static loadDeleteTime(): number {
-        let time = localStorage.getItem("deleteTime")
-        return time == null ? -1 : Number.parseInt(time)
+        const orderMap = localStorage.getItem(Repo.lsKey.map)
+        return orderMap == null ? [] : orderMap.split("$@`#")
     }
 
     static saveUpdateTime(): number {
-        let time = new Date().getTime()
-        localStorage.setItem("updateTime", time.toString())
+        const time = new Date().getTime()
+        localStorage.setItem(Repo.lsKey.updateTime, time.toString())
         return time
     }
 
     static loadUpdateTime(): number {
-        let time = localStorage.getItem("updateTime")
+        const time = localStorage.getItem(Repo.lsKey.updateTime)
         return time == null ? -1 : Number.parseInt(time)
     }
 
-    static saveToFile(data: item) {
-
-    }
-
-    static loadFromFile() {
-
-    }
+    static saveTheme(theme: string) { localStorage.setItem(Repo.lsKey.theme, theme) }
+    static loadTheme(): string | null { return localStorage.getItem(Repo.lsKey.theme) }
+    static saveDark(dark: boolean) { localStorage.setItem(Repo.lsKey.dark, `${dark}`) }
+    static loadDark(): boolean { return localStorage.getItem(Repo.lsKey.dark) == "true" }
 }

@@ -22,62 +22,161 @@
     <div id="app">
         <v-app>
             <v-container>
-                <v-row>
-                    <v-col>
-                        <v-btn @click="deleteAll()">删除所有</v-btn>
+                <v-row align="center">
+                    <v-col cols="auto">
+                        <v-btn @click="clearData()">清空数据</v-btn>
+                    </v-col>
+                    <v-col cols="auto">
+                        <v-switch v-model="$vuetify.theme.dark" label="夜间模式"></v-switch>
                     </v-col>
                 </v-row>
-
-                <v-row align="center" align-content="start" justify="start" v-for="(list,i1) in orderList"
+                <!-- todo  align="center" -->
+                <v-row align="stretch" align-content="start" justify="start" v-for="(list,row) in orderList"
                     :key="list.name">
 
                     <!-- 每一行的开头列 -->
                     <v-col cols="auto">
 
                         <v-hover v-slot:default="{ hover }">
-                            <v-card color="teal" ripple shaped :elevation="hover ? 24 : 6"
-                                class="transition-swing pa-2">
+                            <v-card @click="showListDialog(false,row)" :color="scoreColor.primary" ripple shaped
+                                :elevation="hover ? 24 : 6" class="transition-swing pa-2">
                                 <v-card-actions>
-                                    <v-btn @click="addList(i1)">addList</v-btn>
+                                    <v-btn @click.stop="showListDialog(true,row)">addList</v-btn>
                                 </v-card-actions>
                                 <v-card-actions>
-                                    <v-btn @click="addItem(i1,0)">addItem</v-btn>
-
+                                    <v-btn @click.stop="showItemDialog(true,row)">addItem</v-btn>
                                 </v-card-actions>
-                                <v-card-actions>
-                                    <v-btn>{{list.name}}</v-btn>
-
-                                </v-card-actions>
+                                <v-card-text>
+                                    {{list.name}}
+                                    <br>
+                                    {{list.extraInfo}}
+                                    <br>
+                                    {{list.date}}
+                                </v-card-text>
                             </v-card>
                         </v-hover>
                     </v-col>
 
                     <!-- 每一行的内容列 -->
-                    <v-col cols="auto" v-for="(item,i2) in orderItem[i1]" :key="item.sid">
+                    <v-col cols="auto" v-for="(item,col) in orderItem[row]" :key="item.sid">
 
                         <v-hover v-slot:default="{ hover }">
-                            <v-card :color="scoreColor[i2]" ripple :elevation="hover ? 24 : 6"
-                                class="transition-swing pa-1">
-                                <!-- <v-alert border="left" dense :color="scoreColor[i2]" colored-border class="pa-1"> -->
-                                <v-card-title>
-                                    aaa
+                            <v-card height="100%" :color="scoreColor[item.score]" ripple :elevation="hover ? 24 : 6"
+                                class="transition-swing" @click="showItemDialog(false,row,col)">
+                                <!-- <v-alert width="100%" height="100%" border="left" :color="scoreColor[item.score]"
+                                    colored-border class="pa-0 ma-0"> -->
+                                <v-card-title style="overflow-y: hidden;height:50px;">
+                                    {{item.sid}}
                                 </v-card-title>
                                 <v-card-subtitle>
-                                    bbb
+                                    {{item.extraInfo}}
                                 </v-card-subtitle>
                                 <v-card-text>
-                                    ccc
+                                    {{item.type}}
+                                    <br> <br>
+                                    {{item.date}}
                                 </v-card-text>
-                                <v-card-actions>
-                                    <v-btn @click="addItem(i1,i2)">addItem</v-btn>
-                                    <v-btn>{{item.sid}}</v-btn>
-                                </v-card-actions>
                                 <!-- </v-alert> -->
                             </v-card>
                         </v-hover>
                     </v-col>
 
                 </v-row>
+
+                <!-- 新建item -->
+                <v-dialog persistent width=700 :value="showList">
+                    <v-card>
+                        <v-sheet :color="scoreColor.primary" height=56>
+                            <v-card-title>
+                                <span class="text-h5">新建List</span>
+                            </v-card-title>
+                        </v-sheet>
+                        <v-card-text>
+                            <br>
+                            <v-row>
+                                <v-col cols="5">
+                                    <v-text-field v-model="newList.name" :color="scoreColor.primary" :rules="formRules"
+                                        counter="100" label="List Name" required>
+                                    </v-text-field>
+                                </v-col>
+                                <v-col cols="7">
+                                    <v-text-field v-model="newList.extraInfo" :color="scoreColor.primary" counter="500"
+                                        label="额外信息">
+                                    </v-text-field>
+                                </v-col>
+                            </v-row>
+                            <v-row>
+                                <v-spacer></v-spacer>
+                                <v-col cols="auto">
+                                    <!-- todo theme primary -->
+                                    <v-btn color="primary" text large @click="hideListDialog()">
+                                        取消
+                                    </v-btn>
+                                    <v-btn :color="scoreColor.primary" text large @click="submitList()">
+                                        新建
+                                    </v-btn>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-dialog>
+
+                <v-row>
+                    <v-form ref="form" v-model="valid" lazy-validation>
+                    </v-form>
+                </v-row>
+                <!-- 新建list -->
+
+                <v-dialog persistent width=700 :value="showItem && newItem.type=='Normal'">
+                    <v-card>
+                        <!-- <template slot="progress">
+                                <v-progress-linear :color="scoreColor[newItem.score]" height=56 absolute>
+                                </v-progress-linear>
+                            </template> -->
+                        <v-sheet :color="scoreColor[newItem.score]" height=56>
+                            <v-card-title>
+                                <span class="text-h5">新建Item</span>
+                            </v-card-title>
+                        </v-sheet>
+                        <v-card-text>
+                            <br>
+                            <v-row>
+                                <v-col cols="5">
+                                    <v-text-field v-model="newItem.sid" :color="scoreColor[newItem.score]"
+                                        :rules="formRules" counter="100" label="Item Id" required>
+                                    </v-text-field>
+                                </v-col>
+                                <v-col cols="7">
+                                    <v-text-field v-model="newItem.extraInfo" :color="scoreColor[newItem.score]"
+                                        counter="500" label="额外信息">
+                                    </v-text-field>
+                                </v-col>
+                            </v-row>
+                            <br>
+                            <v-radio-group v-model="newItem.score" row>
+                                <score-radio :score="10" :color="scoreColor[10]">强提醒</score-radio>
+                                <score-radio :score="4" :color="scoreColor[4]">4 分</score-radio>
+                                <score-radio :score="3" :color="scoreColor[3]">3 分</score-radio>
+                                <score-radio :score="2" :color="scoreColor[2]">2 分</score-radio>
+                                <score-radio :score="1" :color="scoreColor[1]">1 分</score-radio>
+                                <score-radio :score="0" :color="scoreColor[0]">不评分</score-radio>
+                                <score-radio :score="-5" :color="scoreColor[-5]">黑名单</score-radio>
+                            </v-radio-group>
+                            <v-row>
+                                <v-spacer></v-spacer>
+                                <v-col cols="auto">
+                                    <v-btn text large @click="hideItemDialog()">
+                                        取消
+                                    </v-btn>
+                                    <v-btn :color="scoreColor.primary" text large @click="submitItem()">
+                                        新建
+                                    </v-btn>
+                                </v-col>
+                            </v-row>
+                        </v-card-text>
+                    </v-card>
+                </v-dialog>
+
             </v-container>
         </v-app>
         <!-- <v-app>

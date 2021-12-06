@@ -68,6 +68,8 @@ window.addEventListener("load", function () {
                 orderItem: [],
                 orderList: [],
                 scoreColor: Repo.loadDark() ? darkColor : lightColor,
+                // todo rename
+                colors: {},
                 handleConflict: {
                     message: "",
                     negative: ["", () => { }],
@@ -78,7 +80,14 @@ window.addEventListener("load", function () {
                 showItem: false,
                 showList: false,
                 formRules: [],
-                clickInfo: [0, 0, true]
+                /** row,col,create */
+                clickInfo: [0, 0, true],
+                globalEditMode: false,
+                loading: false,
+                searchText: "",
+                st2: "",
+                st3: "",
+                searchResult: [],
             }
         },
         vuetify: new Vuetify(theme),
@@ -102,32 +111,24 @@ window.addEventListener("load", function () {
             },
             hideItemDialog: function () { vue.showItem = false },
 
-            submitList: function (row: number = vue.clickInfo[0]) {
-                if (vue.clickInfo[2]) {
-                    VM.insertData(vue.newList, row).then(ok => {
-                        ok ? vue.hideListDialog() : console.log("shibai");
-                    })
-                } else {
-                    VM.updateData(vue.newList, row).then(ok => {
-                        ok ? vue.hideListDialog() : console.log("shibai");
-                    })
-                }
-            },
-            submitItem: function (
+            submitData: function (
                 row: number = vue.clickInfo[0],
                 col: number = vue.clickInfo[1]
             ) {
-                if (vue.clickInfo[2]) {
-                    VM.insertData(vue.newItem, row, col).then(ok => {
-                        ok ? vue.hideItemDialog() : console.log("shibai");
-                    })
-                }
-                else {
-                    VM.updateData(vue.newItem, row, col).then(ok => {
-                        ok ? vue.hideItemDialog() : console.log("shibai");
-                    })
-                }
+                const data = vue.showItem ? vue.newItem : vue.newList
+                const opt = vue.clickInfo[2] ? SaveOpt.Insert : SaveOpt.Update
+                VM.saveData(data, opt, row, col).then(ok => {
+                    ok ? vue.hideListDialog() : console.log("shibai");
+                })
             },
+            searchItem: function () {
+                vue.loading = true
+                debounce(() => {
+                    vue.searchResult = VM.searchItem(vue.st2)
+                    vue.loading = false
+                })
+            }
+            ,
             importData: function (ev: Event) {
                 const input = ev.target as HTMLInputElement
                 console.log(input.files);
@@ -148,12 +149,30 @@ window.addEventListener("load", function () {
             clearData: function () {
                 VM.clearData()
             }
+        },
+        computed: {
+            searchData: function () {
+                return Object.keys(VM.ALL_DATA.itemTable)
+            },
+            vc: (a: unknown, b: unknown) => false,
         }
     })
 
     vue.$watch("handleConflict", (n, o) => {
         console.log("change!!!!!!!!");
 
+    })
+
+    vue.$watch("searchText", (n, o) => {
+        console.log(`searchText: ${n}`);
+
+    })
+    vue.$watch("st2", (n, o) => {
+        console.log(`st2: ${n}`);
+        vue.searchItem()
+    })
+    vue.$watch("st3", (n, o) => {
+        console.log(`st3: ${n}`);
     })
 
     vue.$watch<boolean>("$vuetify.theme.dark", (n, o) => {
@@ -176,6 +195,12 @@ function init() {
             console.log(vue.orderItem)
             console.log(vue.orderList)
         })
+}
+
+let debounceTimer: number | null = null
+function debounce(fn: Function, delay: number = 999) {
+    if (debounceTimer != null) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(fn, delay)
 }
 
 function test() {

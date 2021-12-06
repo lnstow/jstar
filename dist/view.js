@@ -44,6 +44,8 @@ window.addEventListener("load", function () {
                 orderItem: [],
                 orderList: [],
                 scoreColor: Repo.loadDark() ? darkColor : lightColor,
+                // todo rename
+                colors: {},
                 handleConflict: {
                     message: "",
                     negative: ["", () => { }],
@@ -54,7 +56,14 @@ window.addEventListener("load", function () {
                 showItem: false,
                 showList: false,
                 formRules: [],
-                clickInfo: [0, 0, true]
+                /** row,col,create */
+                clickInfo: [0, 0, true],
+                globalEditMode: false,
+                loading: false,
+                searchText: "",
+                st2: "",
+                st3: "",
+                searchResult: [],
             };
         },
         vuetify: new Vuetify(theme),
@@ -79,29 +88,19 @@ window.addEventListener("load", function () {
                 vue.showItem = true;
             },
             hideItemDialog: function () { vue.showItem = false; },
-            submitList: function (row = vue.clickInfo[0]) {
-                if (vue.clickInfo[2]) {
-                    VM.insertData(vue.newList, row).then(ok => {
-                        ok ? vue.hideListDialog() : console.log("shibai");
-                    });
-                }
-                else {
-                    VM.updateData(vue.newList, row).then(ok => {
-                        ok ? vue.hideListDialog() : console.log("shibai");
-                    });
-                }
+            submitData: function (row = vue.clickInfo[0], col = vue.clickInfo[1]) {
+                const data = vue.showItem ? vue.newItem : vue.newList;
+                const opt = vue.clickInfo[2] ? 0 /* Insert */ : 1 /* Update */;
+                VM.saveData(data, opt, row, col).then(ok => {
+                    ok ? vue.hideListDialog() : console.log("shibai");
+                });
             },
-            submitItem: function (row = vue.clickInfo[0], col = vue.clickInfo[1]) {
-                if (vue.clickInfo[2]) {
-                    VM.insertData(vue.newItem, row, col).then(ok => {
-                        ok ? vue.hideItemDialog() : console.log("shibai");
-                    });
-                }
-                else {
-                    VM.updateData(vue.newItem, row, col).then(ok => {
-                        ok ? vue.hideItemDialog() : console.log("shibai");
-                    });
-                }
+            searchItem: function () {
+                vue.loading = true;
+                debounce(() => {
+                    vue.searchResult = VM.searchItem(vue.st2);
+                    vue.loading = false;
+                });
             },
             importData: function (ev) {
                 const input = ev.target;
@@ -119,10 +118,26 @@ window.addEventListener("load", function () {
             clearData: function () {
                 VM.clearData();
             }
+        },
+        computed: {
+            searchData: function () {
+                return Object.keys(VM.ALL_DATA.itemTable);
+            },
+            vc: (a, b) => false,
         }
     });
     vue.$watch("handleConflict", (n, o) => {
         console.log("change!!!!!!!!");
+    });
+    vue.$watch("searchText", (n, o) => {
+        console.log(`searchText: ${n}`);
+    });
+    vue.$watch("st2", (n, o) => {
+        console.log(`st2: ${n}`);
+        vue.searchItem();
+    });
+    vue.$watch("st3", (n, o) => {
+        console.log(`st3: ${n}`);
     });
     vue.$watch("$vuetify.theme.dark", (n, o) => {
         Repo.saveDark(n);
@@ -140,6 +155,12 @@ function init() {
         console.log(vue.orderItem);
         console.log(vue.orderList);
     });
+}
+let debounceTimer = null;
+function debounce(fn, delay = 999) {
+    if (debounceTimer != null)
+        clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fn, delay);
 }
 function test() {
     let time = 1;

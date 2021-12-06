@@ -29,6 +29,9 @@
                     <v-col cols="auto">
                         <v-switch v-model="$vuetify.theme.dark" label="夜间模式"></v-switch>
                     </v-col>
+                    <v-col cols="auto">
+                        <v-switch v-model="globalEditMode" label="编辑模式"></v-switch>
+                    </v-col>
                 </v-row>
                 <!-- todo  align="center" -->
                 <v-row align="stretch" align-content="start" justify="start" v-for="(list,row) in orderList"
@@ -65,9 +68,14 @@
                                 class="transition-swing" @click="showItemDialog(false,row,col)">
                                 <!-- <v-alert width="100%" height="100%" border="left" :color="scoreColor[item.score]"
                                     colored-border class="pa-0 ma-0"> -->
+                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute>
+                                    <v-icon>mdi-close</v-icon>
+                                </v-btn>
+
                                 <v-card-title style="overflow-y: hidden;height:50px;">
                                     {{item.sid}}
                                 </v-card-title>
+
                                 <v-card-subtitle>
                                     {{item.extraInfo}}
                                 </v-card-subtitle>
@@ -96,11 +104,11 @@
                             <v-row>
                                 <v-col cols="5">
                                     <v-text-field v-model="newList.name" :color="scoreColor.primary" :rules="formRules"
-                                        counter="100" label="List Name" required>
+                                        counter="200" label="List Name" required>
                                     </v-text-field>
                                 </v-col>
                                 <v-col cols="7">
-                                    <v-text-field v-model="newList.extraInfo" :color="scoreColor.primary" counter="500"
+                                    <v-text-field v-model="newList.extraInfo" :color="scoreColor.primary" counter="800"
                                         label="额外信息">
                                     </v-text-field>
                                 </v-col>
@@ -112,7 +120,7 @@
                                     <v-btn color="primary" text large @click="hideListDialog()">
                                         取消
                                     </v-btn>
-                                    <v-btn :color="scoreColor.primary" text large @click="submitList()">
+                                    <v-btn :color="scoreColor.primary" text large @click="submitData()">
                                         新建
                                     </v-btn>
                                 </v-col>
@@ -143,17 +151,34 @@
                             <v-row>
                                 <v-col cols="5">
                                     <v-text-field v-model="newItem.sid" :color="scoreColor[newItem.score]"
-                                        :rules="formRules" counter="100" label="Item Id" required>
+                                        :rules="formRules" counter="200" label="Item Id" required>
                                     </v-text-field>
                                 </v-col>
                                 <v-col cols="7">
                                     <v-text-field v-model="newItem.extraInfo" :color="scoreColor[newItem.score]"
-                                        counter="500" label="额外信息">
+                                        counter="800" label="额外信息">
                                     </v-text-field>
                                 </v-col>
                             </v-row>
                             <br>
-                            <v-radio-group v-model="newItem.score" row>
+                            <v-combobox v-model="searchText" counter=200 no-filter :search-input.sync="st2" :value="st3"
+                                :items="searchResult" :loading="loading">
+                                <template v-slot:item="{ index, item }">
+                                    <v-list-item-content>
+                                        {{ item }}
+                                    </v-list-item-content>
+                                </template>
+                            </v-combobox>
+                            <v-chip-group v-model="newItem.score" column mandatory>
+                                <v-chip :value=10 :color="scoreColor[10]" filter>强提醒</v-chip>
+                                <v-chip :value=4 :color="scoreColor[4]" filter>4 分</v-chip>
+                                <v-chip :value=3 :color="scoreColor[3]" filter>3 分</v-chip>
+                                <v-chip :value=2 :color="scoreColor[2]" filter>2 分</v-chip>
+                                <v-chip :value=1 :color="scoreColor[1]" filter>1 分</v-chip>
+                                <v-chip :value=0 :color="scoreColor[0]" filter>不评分</v-chip>
+                                <v-chip :value=-5 :color="scoreColor[-5]" filter>黑名单</v-chip>
+                            </v-chip-group>
+                            <!-- <v-radio-group v-model="newItem.score" row>
                                 <score-radio :score="10" :color="scoreColor[10]">强提醒</score-radio>
                                 <score-radio :score="4" :color="scoreColor[4]">4 分</score-radio>
                                 <score-radio :score="3" :color="scoreColor[3]">3 分</score-radio>
@@ -161,14 +186,14 @@
                                 <score-radio :score="1" :color="scoreColor[1]">1 分</score-radio>
                                 <score-radio :score="0" :color="scoreColor[0]">不评分</score-radio>
                                 <score-radio :score="-5" :color="scoreColor[-5]">黑名单</score-radio>
-                            </v-radio-group>
+                            </v-radio-group> -->
                             <v-row>
                                 <v-spacer></v-spacer>
                                 <v-col cols="auto">
                                     <v-btn text large @click="hideItemDialog()">
                                         取消
                                     </v-btn>
-                                    <v-btn :color="scoreColor.primary" text large @click="submitItem()">
+                                    <v-btn :color="scoreColor.primary" text large @click="submitData()">
                                         新建
                                     </v-btn>
                                 </v-col>

@@ -9,7 +9,7 @@ type AllData = {
 }
 
 class VM {
-    private static ALL_DATA: AllData
+    static ALL_DATA: AllData
     static VUE_DATA: {
         orderList: List[]
         orderItem: Item[][]
@@ -81,13 +81,30 @@ class VM {
             let itemA = new JaDB("itemA")
             let itemB = new JaDB("itemB")
             let itemC = new JaDB("itemC")
-            await VM.insertData(newList, 0)
-            await VM.insertData(itemA, 0, 0)
-            await VM.insertData(itemB, 0, 1)
-            await VM.insertData(itemC, 0, 2)
+            await VM.saveData(newList, SaveOpt.Insert, 0)
+            await VM.saveData(itemA, SaveOpt.Insert, 0, 0)
+            await VM.saveData(itemB, SaveOpt.Insert, 0, 1)
+            await VM.saveData(itemC, SaveOpt.Insert, 0, 2)
         }
 
         return VM.VUE_DATA
+    }
+
+    static async insertItem(data: Item[], row: number, col = 0): Promise<boolean> {
+        VM.checkUpdateTime()
+        await Repo.openDB()
+        const list = VM.VUE_DATA.orderList[row]
+        const arrSet = new Set(list.arr)
+        for (const item of data) {
+            if (arrSet.has(item.sid)) {
+                VM.newHint(`${list.name}列表中已存在${item.sid}`)
+                return false
+            }
+        }
+
+        list.arr;
+        new Map()
+        return true
     }
 
     static async saveData(data: Item | List, opt: SaveOpt,
@@ -203,12 +220,14 @@ class VM {
         return true
     }
 
-    static async insertData(data: Item | List, row: number, col: number = 0) {
-        return VM.saveData(data, SaveOpt.Insert, row, col)
-    }
-
-    static async updateData(data: Item | List, row: number, col: number = 0) {
-        return VM.saveData(data, SaveOpt.Update, row, col)
+    static searchItem(key: string = ""): Item[] {
+        const result: Item[] = []
+        for (const sid in VM.ALL_DATA.itemTable) {
+            if (sid.indexOf(key) != -1) {
+                result.push(VM.ALL_DATA.itemTable[sid])
+            }
+        }
+        return result
     }
 
     static checkUpdateTime() {

@@ -52,12 +52,27 @@ class VM {
             let itemA = new JaDB("itemA");
             let itemB = new JaDB("itemB");
             let itemC = new JaDB("itemC");
-            await VM.insertData(newList, 0);
-            await VM.insertData(itemA, 0, 0);
-            await VM.insertData(itemB, 0, 1);
-            await VM.insertData(itemC, 0, 2);
+            await VM.saveData(newList, 0 /* Insert */, 0);
+            await VM.saveData(itemA, 0 /* Insert */, 0, 0);
+            await VM.saveData(itemB, 0 /* Insert */, 0, 1);
+            await VM.saveData(itemC, 0 /* Insert */, 0, 2);
         }
         return VM.VUE_DATA;
+    }
+    static async insertItem(data, row, col = 0) {
+        VM.checkUpdateTime();
+        await Repo.openDB();
+        const list = VM.VUE_DATA.orderList[row];
+        const arrSet = new Set(list.arr);
+        for (const item of data) {
+            if (arrSet.has(item.sid)) {
+                VM.newHint(`${list.name}列表中已存在${item.sid}`);
+                return false;
+            }
+        }
+        list.arr;
+        new Map();
+        return true;
     }
     static async saveData(data, opt, row, col = 0) {
         VM.checkUpdateTime();
@@ -164,11 +179,14 @@ class VM {
         }
         return true;
     }
-    static async insertData(data, row, col = 0) {
-        return VM.saveData(data, 0 /* Insert */, row, col);
-    }
-    static async updateData(data, row, col = 0) {
-        return VM.saveData(data, 1 /* Update */, row, col);
+    static searchItem(key = "") {
+        const result = [];
+        for (const sid in VM.ALL_DATA.itemTable) {
+            if (sid.indexOf(key) != -1) {
+                result.push(VM.ALL_DATA.itemTable[sid]);
+            }
+        }
+        return result;
     }
     static checkUpdateTime() {
         const errMsg = "当前页面不是最新数据，请不要同时打开两个页面，";

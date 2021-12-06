@@ -179,8 +179,10 @@ class VM {
         }
         return true;
     }
-    static searchItem(key = "") {
+    static searchItem(key) {
         const result = [];
+        if (key == null || key.length == 0)
+            return result;
         for (const sid in VM.ALL_DATA.itemTable) {
             if (sid.indexOf(key) != -1) {
                 result.push(VM.ALL_DATA.itemTable[sid]);

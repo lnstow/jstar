@@ -161,10 +161,12 @@
                                 </v-col>
                             </v-row>
                             <br>
-                            <v-combobox v-model="searchText" counter=200 no-filter :search-input.sync="st2" :value="st3"
-                                :items="searchResult" :loading="loading">
+                            <v-combobox v-model="searchText" counter maxlength=200 no-filter :search-input.sync="st2"
+                                :value="st3" :items="searchResult" :loading="loading" autofocus clearable
+                                item-value="sid" :return-object="false" solo prefix="标题"
+                                :item-color="scoreColor.primary" :color="scoreColor.primary">
                                 <template v-slot:item="{ index, item }">
-                                    <v-list-item-content>
+                                    <v-list-item-content @click.stop="">
                                         {{ item }}
                                     </v-list-item-content>
                                 </template>

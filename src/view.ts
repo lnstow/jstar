@@ -123,6 +123,7 @@ window.addEventListener("load", function () {
             },
             searchItem: function () {
                 vue.loading = true
+                vue.searchResult = []
                 debounce(() => {
                     vue.searchResult = VM.searchItem(vue.st2)
                     vue.loading = false

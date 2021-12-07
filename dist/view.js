@@ -59,7 +59,8 @@ window.addEventListener("load", function () {
                 /** row,col,create */
                 clickInfo: [0, 0, true],
                 globalEditMode: false,
-                loading: false,
+                localLoading: false,
+                remoteLoading: false,
                 searchText: "",
                 st2: "",
                 st3: "",
@@ -96,12 +97,15 @@ window.addEventListener("load", function () {
                 });
             },
             searchItem: function () {
-                vue.loading = true;
+                vue.localLoading = true;
                 vue.searchResult = [];
                 debounce(() => {
-                    vue.searchResult = VM.searchItem(vue.st2);
-                    vue.loading = false;
+                    vue.searchResult = VM.searchItem(vue.st2, vue.clickInfo[0]);
+                    vue.localLoading = false;
                 });
+            },
+            testClick: function () {
+                console.log("213");
             },
             importData: function (ev) {
                 const input = ev.target;

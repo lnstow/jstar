@@ -1,6 +1,11 @@
 const enum SaveOpt {
     Insert, Update, Delete
 }
+const enum DataLevel {
+    ItemNone, ItemInList, ItemInDb, ListInMap, ListNone
+}
+type ItemSearchResult = { item: Item, level: DataLevel }
+type ListSearchResult = { list: List, level: DataLevel }
 type BtnCallback = [btn: string, onClick: () => void]
 type AllData = {
     orderMap: string[]
@@ -220,15 +225,24 @@ class VM {
         return true
     }
 
-    static searchItem(key: string): Item[] {
-        const result: Item[] = []
-        if (key == null || key.length == 0) return result
+    static searchItem(key: string, row: number): ItemSearchResult[] {
+        if (key == null || key.length == 0) return []
+        const list = VM.VUE_DATA.orderList[row]
+        const itemInList: ItemSearchResult[] = []
+        const itemInDb: ItemSearchResult[] = []
+        if (VM.ALL_DATA.itemTable[key] == undefined)
+            itemInList.push({ item: new NormalItem(key), level: DataLevel.ItemNone })
+
         for (const sid in VM.ALL_DATA.itemTable) {
             if (sid.indexOf(key) != -1) {
-                result.push(VM.ALL_DATA.itemTable[sid])
+                const item = VM.ALL_DATA.itemTable[sid]
+                if (VM.itemRef.get(sid)!.indexOf(list.name) != -1)
+                    itemInList.push({ item, level: DataLevel.ItemInList })
+                else
+                    itemInDb.push({ item, level: DataLevel.ItemInDb })
             }
         }
-        return result
+        return itemInList.concat(itemInDb)
     }
 
     static checkUpdateTime() {

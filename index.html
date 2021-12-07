@@ -162,13 +162,17 @@
                             </v-row>
                             <br>
                             <v-combobox v-model="searchText" counter maxlength=200 no-filter :search-input.sync="st2"
-                                :value="st3" :items="searchResult" :loading="loading" autofocus clearable
-                                item-value="sid" :return-object="false" solo prefix="标题"
+                                :value="st3" :items="searchResult" :loading="localLoading" autofocus clearable
+                                item-value="item.sid" :return-object="false" solo prefix="标题"
                                 :item-color="scoreColor.primary" :color="scoreColor.primary">
-                                <template v-slot:item="{ index, item }">
-                                    <v-list-item-content @click.stop="">
-                                        {{ item }}
-                                    </v-list-item-content>
+                                <template v-slot:item="{ item,on,attrs }">
+                                    <v-list-item ripple @click="testClick">
+                                        <v-icon v-if="item.level!=0">mdi-pencil</v-icon>
+                                        <v-icon v-if="item.level!=1">mdi-plus</v-icon>
+                                        <v-chip label :color="scoreColor[item.item.score]">
+                                            {{item.item.sid}}
+                                        </v-chip>
+                                    </v-list-item>
                                 </template>
                             </v-combobox>
                             <v-chip-group v-model="newItem.score" column mandatory>

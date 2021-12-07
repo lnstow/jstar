@@ -179,16 +179,24 @@ class VM {
         }
         return true;
     }
-    static searchItem(key) {
-        const result = [];
+    static searchItem(key, row) {
         if (key == null || key.length == 0)
-            return result;
+            return [];
+        const list = VM.VUE_DATA.orderList[row];
+        const itemInList = [];
+        const itemInDb = [];
+        if (VM.ALL_DATA.itemTable[key] == undefined)
+            itemInList.push({ item: new NormalItem(key), level: 0 /* ItemNone */ });
         for (const sid in VM.ALL_DATA.itemTable) {
             if (sid.indexOf(key) != -1) {
-                result.push(VM.ALL_DATA.itemTable[sid]);
+                const item = VM.ALL_DATA.itemTable[sid];
+                if (VM.itemRef.get(sid).indexOf(list.name) != -1)
+                    itemInList.push({ item, level: 1 /* ItemInList */ });
+                else
+                    itemInDb.push({ item, level: 2 /* ItemInDb */ });
             }
         }
-        return result;
+        return itemInList.concat(itemInDb);
     }
     static checkUpdateTime() {
         const errMsg = "当前页面不是最新数据，请不要同时打开两个页面，";

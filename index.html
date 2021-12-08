@@ -32,6 +32,9 @@
                     <v-col cols="auto">
                         <v-switch v-model="globalEditMode" label="编辑模式"></v-switch>
                     </v-col>
+                    <v-col cols="auto">
+                        <v-switch v-model="networkMode" label="冲浪模式"></v-switch>
+                    </v-col>
                 </v-row>
                 <!-- todo  align="center" -->
                 <v-row align="stretch" align-content="start" justify="start" v-for="(list,row) in orderList"
@@ -48,6 +51,9 @@
                                 </v-card-actions>
                                 <v-card-actions>
                                     <v-btn @click.stop="showItemDialog(true,row)">addItem</v-btn>
+                                </v-card-actions>
+                                <v-card-actions>
+                                    <v-btn @click.stop="showSearchDialog(row)">search</v-btn>
                                 </v-card-actions>
                                 <v-card-text>
                                     {{list.name}}
@@ -90,6 +96,25 @@
                     </v-col>
 
                 </v-row>
+
+                <v-dialog :width="dialogWidth" v-model="showSearch">
+                    <v-card>
+                        <v-combobox counter maxlength=200 no-filter :search-input.sync="searchText"
+                            :items="searchResult" :loading="localLoading" autofocus clearable item-value="item.sid"
+                            :return-object="false" solo prefix="标题" :item-color="scoreColor.primary" loader-height=3
+                            :menu-props="{'max-width':dialogWidth,'nudge-top':-1}" :color="scoreColor.primary">
+                            <template v-slot:item="{ item,on,attrs }">
+                                <v-list-item ripple @click="requestDialog(item)">
+                                    <v-icon v-if="item.level!=0">mdi-pencil</v-icon>
+                                    <v-icon v-if="item.level!=1">mdi-plus</v-icon>
+                                    <v-chip label :color="scoreColor[item.item.score]">
+                                        {{item.item.sid}}
+                                    </v-chip>
+                                </v-list-item>
+                            </template>
+                        </v-combobox>
+                    </v-card>
+                </v-dialog>
 
                 <!-- 新建item -->
                 <v-dialog persistent width=700 :value="showList">
@@ -161,20 +186,6 @@
                                 </v-col>
                             </v-row>
                             <br>
-                            <v-combobox v-model="searchText" counter maxlength=200 no-filter :search-input.sync="st2"
-                                :value="st3" :items="searchResult" :loading="localLoading" autofocus clearable
-                                item-value="item.sid" :return-object="false" solo prefix="标题"
-                                :item-color="scoreColor.primary" :color="scoreColor.primary">
-                                <template v-slot:item="{ item,on,attrs }">
-                                    <v-list-item ripple @click="testClick">
-                                        <v-icon v-if="item.level!=0">mdi-pencil</v-icon>
-                                        <v-icon v-if="item.level!=1">mdi-plus</v-icon>
-                                        <v-chip label :color="scoreColor[item.item.score]">
-                                            {{item.item.sid}}
-                                        </v-chip>
-                                    </v-list-item>
-                                </template>
-                            </v-combobox>
                             <v-chip-group v-model="newItem.score" column mandatory>
                                 <v-chip :value=10 :color="scoreColor[10]" filter>强提醒</v-chip>
                                 <v-chip :value=4 :color="scoreColor[4]" filter>4 分</v-chip>

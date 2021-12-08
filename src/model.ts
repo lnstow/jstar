@@ -223,7 +223,8 @@ class Repo {
         map: "ja_map",
         updateTime: "ja_update_time",
         theme: "ja_theme",
-        dark: "ja_dark"
+        dark: "ja_dark",
+        network: "ja_network",
     }
 
     static saveOrderMap(orderMap: string[]) {
@@ -250,4 +251,6 @@ class Repo {
     static loadTheme(): string | null { return localStorage.getItem(Repo.lsKey.theme) }
     static saveDark(dark: boolean) { localStorage.setItem(Repo.lsKey.dark, `${dark}`) }
     static loadDark(): boolean { return localStorage.getItem(Repo.lsKey.dark) == "true" }
+    static saveNetwork(network: boolean) { localStorage.setItem(Repo.lsKey.network, `${network}`) }
+    static loadNetwork(): boolean { return localStorage.getItem(Repo.lsKey.network) == "true" }
 }

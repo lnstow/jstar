@@ -79,16 +79,17 @@ window.addEventListener("load", function () {
                 newItem: new NormalItem(""),
                 showItem: false,
                 showList: false,
+                showSearch: false,
                 formRules: [],
                 /** row,col,create */
                 clickInfo: [0, 0, true],
                 globalEditMode: false,
+                networkMode: Repo.loadNetwork(),
                 localLoading: false,
-                remoteLoading: false,
+                networkLoading: false,
                 searchText: "",
-                st2: "",
-                st3: "",
                 searchResult: [],
+                dialogWidth: 700
             }
         },
         vuetify: new Vuetify(theme),
@@ -111,7 +112,30 @@ window.addEventListener("load", function () {
                 vue.showItem = true
             },
             hideItemDialog: function () { vue.showItem = false },
-
+            showSearchDialog: function (row: number) {
+                vue.clickInfo[0] = row
+                vue.searchText = ""
+                vue.searchResult = []
+                vue.showSearch = true
+            },
+            requestDialog: function (item: ItemSearchResult) {
+                switch (item.level) {
+                    case DataLevel.ItemNone:
+                        vue.showItemDialog(true, vue.clickInfo[0])
+                        break
+                    case DataLevel.ItemInList:
+                        const list = vue.orderList[vue.clickInfo[0]] as List
+                        const col = list.arr.indexOf(item.item.sid)
+                        vue.showItemDialog(false, vue.clickInfo[0], col)
+                        break
+                    case DataLevel.ItemInDb:
+                        vue.showItemDialog(true, vue.clickInfo[0])
+                        break
+                    default: break
+                }
+                tempData = vue.searchResult
+                vue.searchResult = []
+            },
             submitData: function (
                 row: number = vue.clickInfo[0],
                 col: number = vue.clickInfo[1]
@@ -120,19 +144,19 @@ window.addEventListener("load", function () {
                 const opt = vue.clickInfo[2] ? SaveOpt.Insert : SaveOpt.Update
                 VM.saveData(data, opt, row, col).then(ok => {
                     ok ? vue.hideListDialog() : console.log("shibai");
+                    if (ok) {
+                        vue.hideItemDialog()
+                        vue.searchResult = []
+                    }
                 })
             },
             searchItem: function () {
                 vue.localLoading = true
                 vue.searchResult = []
                 debounce(() => {
-                    vue.searchResult = VM.searchItem(vue.st2, vue.clickInfo[0])
+                    vue.searchResult = VM.searchItem(vue.searchText, vue.clickInfo[0])
                     vue.localLoading = false
                 })
-            },
-            testClick: function () {
-                console.log("213");
-
             },
             importData: function (ev: Event) {
                 const input = ev.target as HTMLInputElement
@@ -156,7 +180,7 @@ window.addEventListener("load", function () {
             }
         },
         computed: {
-            searchData: function () {
+            va: function () {
                 return Object.keys(VM.ALL_DATA.itemTable)
             },
             vc: (a: unknown, b: unknown) => false,
@@ -169,27 +193,29 @@ window.addEventListener("load", function () {
     })
 
     vue.$watch("searchText", (n, o) => {
-        console.log(`searchText: ${n}`);
-
-    })
-    vue.$watch("st2", (n, o) => {
-        console.log(`st2: ${n}`);
-        vue.searchItem()
-    })
-    vue.$watch("st3", (n, o) => {
-        console.log(`st3: ${n}`);
+        console.log(`searchText: ${n}`)
+        if (vue.showSearch) vue.searchItem()
     })
 
     vue.$watch<boolean>("$vuetify.theme.dark", (n, o) => {
         Repo.saveDark(n)
         vue.scoreColor = n ? darkColor : lightColor
     })
-
+    vue.$watch<boolean>("networkMode", (n, o) => Repo.saveNetwork(n))
+    vue.$watch<boolean>("showItem", restoreSearchResult)
+    vue.$watch<boolean>("showList", restoreSearchResult)
     init()
 
     test()
 
 })
+
+let tempData: any
+function restoreSearchResult(dialogShow: boolean) {
+    if (!dialogShow && vue.showSearch) {
+        vue.searchResult = tempData
+    }
+}
 
 function init() {
     VM.loadData()

@@ -55,16 +55,17 @@ window.addEventListener("load", function () {
                 newItem: new NormalItem(""),
                 showItem: false,
                 showList: false,
+                showSearch: false,
                 formRules: [],
                 /** row,col,create */
                 clickInfo: [0, 0, true],
                 globalEditMode: false,
+                networkMode: Repo.loadNetwork(),
                 localLoading: false,
-                remoteLoading: false,
+                networkLoading: false,
                 searchText: "",
-                st2: "",
-                st3: "",
                 searchResult: [],
+                dialogWidth: 700
             };
         },
         vuetify: new Vuetify(theme),
@@ -89,23 +90,48 @@ window.addEventListener("load", function () {
                 vue.showItem = true;
             },
             hideItemDialog: function () { vue.showItem = false; },
+            showSearchDialog: function (row) {
+                vue.clickInfo[0] = row;
+                vue.searchText = "";
+                vue.searchResult = [];
+                vue.showSearch = true;
+            },
+            requestDialog: function (item) {
+                switch (item.level) {
+                    case 0 /* ItemNone */:
+                        vue.showItemDialog(true, vue.clickInfo[0]);
+                        break;
+                    case 1 /* ItemInList */:
+                        const list = vue.orderList[vue.clickInfo[0]];
+                        const col = list.arr.indexOf(item.item.sid);
+                        vue.showItemDialog(false, vue.clickInfo[0], col);
+                        break;
+                    case 2 /* ItemInDb */:
+                        vue.showItemDialog(true, vue.clickInfo[0]);
+                        break;
+                    default: break;
+                }
+                tempData = vue.searchResult;
+                vue.searchResult = [];
+            },
             submitData: function (row = vue.clickInfo[0], col = vue.clickInfo[1]) {
                 const data = vue.showItem ? vue.newItem : vue.newList;
                 const opt = vue.clickInfo[2] ? 0 /* Insert */ : 1 /* Update */;
                 VM.saveData(data, opt, row, col).then(ok => {
                     ok ? vue.hideListDialog() : console.log("shibai");
+                    if (ok) {
+                        vue.hideItemDialog();
+                        vue.searchResult = [];
+                    }
                 });
             },
             searchItem: function () {
                 vue.localLoading = true;
                 vue.searchResult = [];
                 debounce(() => {
-                    vue.searchResult = VM.searchItem(vue.st2, vue.clickInfo[0]);
+                    vue.searchResult = VM.searchItem(vue.searchText, vue.clickInfo[0]);
                     vue.localLoading = false;
                 });
-            },
-            testClick: function () {
-                console.log("213");
             },
             importData: function (ev) {
                 const input = ev.target;
@@ -125,7 +151,7 @@ window.addEventListener("load", function () {
             }
         },
         computed: {
-            searchData: function () {
+            va: function () {
                 return Object.keys(VM.ALL_DATA.itemTable);
             },
             vc: (a, b) => false,
@@ -136,21 +162,25 @@ window.addEventListener("load", function () {
     });
     vue.$watch("searchText", (n, o) => {
         console.log(`searchText: ${n}`);
-    });
-    vue.$watch("st2", (n, o) => {
-        console.log(`st2: ${n}`);
-        vue.searchItem();
-    });
-    vue.$watch("st3", (n, o) => {
-        console.log(`st3: ${n}`);
+        if (vue.showSearch)
+            vue.searchItem();
     });
     vue.$watch("$vuetify.theme.dark", (n, o) => {
         Repo.saveDark(n);
         vue.scoreColor = n ? darkColor : lightColor;
     });
+    vue.$watch("networkMode", (n, o) => Repo.saveNetwork(n));
+    vue.$watch("showItem", restoreSearchResult);
+    vue.$watch("showList", restoreSearchResult);
     init();
     test();
 });
+let tempData;
+function restoreSearchResult(dialogShow) {
+    if (!dialogShow && vue.showSearch) {
+        vue.searchResult = tempData;
+    }
+}
 function init() {
     VM.loadData()
         .then(v => {

@@ -189,10 +189,13 @@ class Repo {
     static loadTheme() { return localStorage.getItem(Repo.lsKey.theme); }
     static saveDark(dark) { localStorage.setItem(Repo.lsKey.dark, `${dark}`); }
     static loadDark() { return localStorage.getItem(Repo.lsKey.dark) == "true"; }
+    static saveNetwork(network) { localStorage.setItem(Repo.lsKey.network, `${network}`); }
+    static loadNetwork() { return localStorage.getItem(Repo.lsKey.network) == "true"; }
 }
 Repo.lsKey = {
     map: "ja_map",
     updateTime: "ja_update_time",
     theme: "ja_theme",
-    dark: "ja_dark"
+    dark: "ja_dark",
+    network: "ja_network",
 };

@@ -133,8 +133,6 @@ window.addEventListener("load", function () {
                         break
                     default: break
                 }
-                tempData = vue.searchResult
-                vue.searchResult = []
             },
             submitData: function (
                 row: number = vue.clickInfo[0],
@@ -211,9 +209,12 @@ window.addEventListener("load", function () {
 })
 
 let tempData: any
-function restoreSearchResult(dialogShow: boolean) {
-    if (!dialogShow && vue.showSearch) {
-        vue.searchResult = tempData
+function restoreSearchResult(otherDialogShow: boolean) {
+    if (vue.showSearch) {
+        if (otherDialogShow) {
+            tempData = vue.searchResult
+            vue.searchResult = []
+        } else vue.searchResult = tempData
     }
 }
 

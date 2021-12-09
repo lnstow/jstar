@@ -111,8 +111,6 @@ window.addEventListener("load", function () {
                         break;
                     default: break;
                 }
-                tempData = vue.searchResult;
-                vue.searchResult = [];
             },
             submitData: function (row = vue.clickInfo[0], col = vue.clickInfo[1]) {
                 const data = vue.showItem ? vue.newItem : vue.newList;
@@ -176,9 +174,14 @@ window.addEventListener("load", function () {
     test();
 });
 let tempData;
-function restoreSearchResult(dialogShow) {
-    if (!dialogShow && vue.showSearch) {
-        vue.searchResult = tempData;
+function restoreSearchResult(otherDialogShow) {
+    if (vue.showSearch) {
+        if (otherDialogShow) {
+            tempData = vue.searchResult;
+            vue.searchResult = [];
+        }
+        else
+            vue.searchResult = tempData;
     }
 }
 function init() {

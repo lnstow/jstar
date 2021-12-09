@@ -95,20 +95,51 @@ class VM {
         return VM.VUE_DATA
     }
 
-    static async insertItem(data: Item[], row: number, col = 0): Promise<boolean> {
-        VM.checkUpdateTime()
+    /** 分数高在前面，如果i1在前，i1s>i2s，需要返回负数 */
+    private static orderByScore(i1: Item, i2: Item): number {
+        if (i1.score == i2.score) return i1.date >= i2.date ? -1 : 1
+        return i1.score > i2.score ? -1 : 1
+    }
+
+    /** 日期新在前面，如果i1在前，i1d>i2d，需要返回负数 */
+    private static orderByDate(i1: Item, i2: Item) {
+        if (i1.date == i2.date) return i1.score >= i2.score ? -1 : 1
+        return i1.date > i2.date ? -1 : 1
+    }
+
+    static scoreFirst = true
+    static getOrderFun() {
+        if (VM.scoreFirst) return VM.orderByScore
+        return VM.orderByDate
+    }
+
+    static async insertItem(data: Item[], row: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
         await Repo.openDB()
         const list = VM.VUE_DATA.orderList[row]
-        const arrSet = new Set(list.arr)
+        const sidSet = new Set(list.arr)
         for (const item of data) {
-            if (arrSet.has(item.sid)) {
+            if (sidSet.has(item.sid)) {
                 VM.newHint(`${list.name}列表中已存在${item.sid}`)
                 return false
             }
         }
+        try {
+            // todo data
+            await Repo.saveToDB(ITEM_TABLE, ...data)
+            const items = list.arr.map(sid => VM.ALL_DATA.itemTable[sid])
+            items.push(...data)
+            items.sort(VM.getOrderFun())
 
-        list.arr;
-        new Map()
+            header.arr.splice(col, 0, data.sid)
+            await Repo.saveToDB(LIST_TABLE, header)
+            allData.itemTable[data.sid] = data
+            content.splice(col, 0, data)
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
+        }
         return true
     }
 
@@ -234,6 +265,7 @@ class VM {
             itemInList.push({ item: new NormalItem(key), level: DataLevel.ItemNone })
 
         for (const sid in VM.ALL_DATA.itemTable) {
+            if (VM.itemRef.get(sid) == undefined) continue
             if (sid.indexOf(key) != -1) {
                 const item = VM.ALL_DATA.itemTable[sid]
                 if (VM.itemRef.get(sid)!.indexOf(list.name) != -1)
@@ -250,9 +282,12 @@ class VM {
         const time = Repo.loadUpdateTime()
         if (time != VM.updateTime) {
             VM.newHint(errMsg, ["刷新页面", location.reload])
-            throw new Error(errMsg);
+            // throw new Error(errMsg);
+            console.error(new Error(errMsg))
+            return false
         }
         VM.updateTime = Repo.saveUpdateTime()
+        return true
     }
 
     static async clearData() {

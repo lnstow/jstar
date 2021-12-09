@@ -126,30 +126,18 @@ class Repo {
     static saveToDB<T extends keyof TableType>(tableName: T,
         ...data: TableType[T][]) {
         return new Promise((resolve, reject) => {
-            let count = 0
             const tx = Repo.DB.transaction(tableName, "readwrite")
             const store = tx.objectStore(tableName)
-            tx.oncomplete = () => {
-                if (count == 0) {
-                    console.log("tx complete")
-                    resolve(data)
-                } else
-                    console.warn(`request count:${count}`)
+            tx.oncomplete = () => resolve(data)
+
+            try {
+                for (const element of data) {
+                    const request = store.put(element)
+                }
+            } catch (error) {
+                tx.abort()
+                reject(error)
             }
-
-            for (const element of data) {
-                // console.log(element)
-
-                // if (count++ % 1000 == 0) {
-                //     tx = DataRepo.DB.transaction(tableName, "readwrite")
-                //     store = tx.objectStore(tableName)
-                // }
-                count++
-                const request = store.put(element)
-                request.onsuccess = () => count--
-                request.onerror = reject
-            }
-
         })
     }
 

@@ -22,7 +22,7 @@ function isItem(data: Item | List): data is Item {
     return "type" in data
 }
 function getTime(): string {
-    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD HH"
+    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD+HH"
     const d = new Date()
     d.setUTCHours(d.getUTCHours() - d.getTimezoneOffset() / 60)
     return d.toISOString().slice(0, 13).replace("T", "+")

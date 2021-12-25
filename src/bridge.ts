@@ -1,8 +1,5 @@
-const enum SaveOpt {
-    Insert, Update, Delete
-}
 const enum DataLevel {
-    ItemNone, ItemInList, ItemInDb, ListInMap, ListNone
+    ItemNone, ItemInList, ItemInDb, ListNone, ListInMap
 }
 type ItemSearchResult = { item: Item, level: DataLevel }
 type ListSearchResult = { list: List, level: DataLevel }
@@ -18,7 +15,7 @@ class VM {
     static VUE_DATA: {
         orderList: List[]
         orderItem: Item[][]
-        handleConflict: {
+        hint: {
             message: string
             negative: BtnCallback
             positive: BtnCallback
@@ -27,29 +24,27 @@ class VM {
     private static updateTime: number
     private static itemRef: Map<string, string[]>
     private static errorMsg = "出错了，请刷新后重试"
-    private static newHint(msg: string,
-        positive: BtnCallback = ["", () => { }],
-        negative: BtnCallback = ["知道了", () => { }],
+    static emptyFunc = () => { }
+    static newHint(msg: string,
+        positive: BtnCallback = ["", VM.emptyFunc],
+        negative: BtnCallback = ["知道了", VM.emptyFunc],
     ) {
-        VM.VUE_DATA.handleConflict = {
-            message: msg,
-            negative: [negative[0], () => {
-                VM.VUE_DATA.handleConflict.message = ""
-                negative[1]()
-            }],
-            positive: [positive[0], () => {
-                VM.VUE_DATA.handleConflict.message = ""
-                positive[1]()
-            }]
-        }
-        Vue.set(vue, "handleConflict", VM.VUE_DATA.handleConflict)
+        const hint = VM.VUE_DATA.hint
+        hint.message = msg
+        hint.negative = [negative[0], () => {
+            VM.VUE_DATA.hint.message = ""
+            negative[1]()
+        }]
+        hint.positive = [positive[0], () => {
+            VM.VUE_DATA.hint.message = ""
+            positive[1]()
+        }]
     }
 
     static async loadData() {
         await Repo.openDB()
         const itemTable = await Repo.loadFromDB(ITEM_TABLE)
         const listTable = await Repo.loadFromDB(LIST_TABLE)
-        console.log("load success")
 
         const orderMap: string[] = Repo.loadOrderMap()
         VM.ALL_DATA = { orderMap, listTable, itemTable }
@@ -64,32 +59,25 @@ class VM {
 
             for (const itemSid of list.arr) {
                 arr.push(itemTable[itemSid])
-                if (VM.itemRef.has(itemSid)) {
-                    VM.itemRef.get(itemSid)!.push(listName)
-                } else
-                    VM.itemRef.set(itemSid, [listName])
+                VM.updateItemRef(itemSid, listName)
             }
             orderItem.push(arr)
         }
         VM.VUE_DATA = {
             orderList, orderItem,
-            handleConflict: {
+            hint: {
                 message: "",
-                negative: ["", () => { }],
-                positive: ["", () => { }]
+                negative: ["", VM.emptyFunc],
+                positive: ["", VM.emptyFunc]
             },
         }
         VM.updateTime = Repo.saveUpdateTime()
 
         if (orderMap.length == 0) {
-            let newList = new NormalList("listName")
-            let itemA = new JaDB("itemA")
-            let itemB = new JaDB("itemB")
-            let itemC = new JaDB("itemC")
-            await VM.saveData(newList, SaveOpt.Insert, 0)
-            await VM.saveData(itemA, SaveOpt.Insert, 0, 0)
-            await VM.saveData(itemB, SaveOpt.Insert, 0, 1)
-            await VM.saveData(itemC, SaveOpt.Insert, 0, 2)
+            await VM.insertList(new NormalList("listName"), 0)
+            await VM.insertItem(new NormalItem("itemA"), 0)
+            await VM.insertItem(new NormalItem("itemB"), 0)
+            await VM.insertItem(new NormalItem("itemC"), 0)
         }
 
         return VM.VUE_DATA
@@ -113,28 +101,29 @@ class VM {
         return VM.orderByDate
     }
 
-    static async insertItem(data: Item[], row: number): Promise<boolean> {
-        if (!VM.checkUpdateTime()) return false
-        await Repo.openDB()
-        const list = VM.VUE_DATA.orderList[row]
-        const sidSet = new Set(list.arr)
-        for (const item of data) {
-            if (sidSet.has(item.sid)) {
-                VM.newHint(`${list.name}列表中已存在${item.sid}`)
-                return false
-            }
-        }
-        try {
-            // todo data
-            await Repo.saveToDB(ITEM_TABLE, ...data)
-            const items = list.arr.map(sid => VM.ALL_DATA.itemTable[sid])
-            items.push(...data)
-            items.sort(VM.getOrderFun())
+    static calculateCol(item: Item, list: List) {
+        let col = list.arr.findIndex(sid => {
+            return VM.getOrderFun()(item, VM.ALL_DATA.itemTable[sid]) < 0
+        })
+        if (col == -1) col = list.arr.length
+        return col
+    }
 
-            header.arr.splice(col, 0, data.sid)
-            await Repo.saveToDB(LIST_TABLE, header)
-            allData.itemTable[data.sid] = data
-            content.splice(col, 0, data)
+    static async insertItem(item: Item, row: number, col = -1): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        const list = VM.VUE_DATA.orderList[row]
+        list.date = getTime()
+        try {
+            item.date = getTime()
+            await Repo.saveToDB(ITEM_TABLE, item)
+            if (col == -1) col = VM.calculateCol(item, list)
+            list.arr.splice(col, 0, item.sid)
+            await Repo.saveToDB(LIST_TABLE, list)
+            if (VM.itemRef.has(item.sid)) VM.responsiveCopy(VM.ALL_DATA.itemTable[item.sid], item)
+            else VM.ALL_DATA.itemTable[item.sid] = item
+            item = VM.ALL_DATA.itemTable[item.sid]
+            VM.VUE_DATA.orderItem[row].splice(col, 0, item)
+            VM.updateItemRef(item.sid, list.name)
         } catch (error) {
             console.error(error)
             VM.newHint(VM.errorMsg)
@@ -143,115 +132,122 @@ class VM {
         return true
     }
 
-    static async saveData(data: Item | List, opt: SaveOpt,
-        row: number, col: number = 0): Promise<Boolean> {
-        VM.checkUpdateTime()
-        await Repo.openDB()
-        const allData = VM.ALL_DATA
-        const vueData = VM.VUE_DATA
+    static async updateItem(item: Item, row: number, col: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        item.date = getTime()
+        const list = VM.VUE_DATA.orderList[row]
+        list.date = getTime()
+        try {
+            await Repo.saveToDB(LIST_TABLE, list)
+            await Repo.saveToDB(ITEM_TABLE, item)
+            // VM.responsiveCopy(VM.VUE_DATA.orderItem[row][col], item)
+            VM.responsiveCopy(VM.ALL_DATA.itemTable[item.sid], item)
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
+        }
+        return true
+    }
 
-        if (isItem(data)) {
-            const content = vueData.orderItem[row]
-            const header = vueData.orderList[row]
-            if (opt == SaveOpt.Insert) {
-                // 插入新元素，
-                // 如果列表中已存在，拒绝插入，弹窗提示，
-                // 如果数据库中已存在，新老数据混合，得到最新数据，
+    static async deleteItem(row: number, col: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        const list = VM.VUE_DATA.orderList[row]
+        const item = VM.VUE_DATA.orderItem[row][col]
+        try {
+            list.date = getTime()
+            list.arr.splice(col, 1)
+            await Repo.saveToDB(LIST_TABLE, list)
+            VM.VUE_DATA.orderItem[row].splice(col, 1)
+            VM.deleteItemRef(item.sid, list.name)
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
+        }
+        return true
+    }
 
-                // 验证数据
-                // TODO 插入位置，按照分数排序
-                if (header.arr.indexOf(data.sid) != -1) {
-                    VM.newHint("列表中已存在元素")
-                    return false
-                }
-                const old = allData.itemTable[data.sid]
-                if (old != undefined)
-                    data = mixItem(old, data)
+    private static updateItemRef(itemSid: string, listName: string) {
+        if (VM.itemRef.has(itemSid)) VM.itemRef.get(itemSid)!.push(listName)
+        else VM.itemRef.set(itemSid, [listName])
+    }
 
-                // 操作数据
-                try {
-                    await Repo.saveToDB(ITEM_TABLE, data)
-                    header.arr.splice(col, 0, data.sid)
-                    await Repo.saveToDB(LIST_TABLE, header)
-                    allData.itemTable[data.sid] = data
-                    content.splice(col, 0, data)
-                } catch (error) {
-                    console.error(error)
-                    VM.newHint(VM.errorMsg)
-                    return false
-                }
-            } else if (opt == SaveOpt.Update) {
-                // 修改元素，从表单传进来的就是最新数据
-                try {
-                    await Repo.saveToDB(ITEM_TABLE, data)
-                    header.arr.splice(col, 1, data.sid)
-                    await Repo.saveToDB(LIST_TABLE, header)
-                    allData.itemTable[data.sid] = data
-                    content.splice(col, 1, data)
-                    // todo 测试更新不用split
-                    // content[col] = data
-                } catch (error) {
-                    console.error(error)
-                    VM.newHint(VM.errorMsg)
-                    return false
-                }
+    private static async deleteItemRef(itemSid: string, listName: string) {
+        if (VM.itemRef.has(itemSid)) {
+            const refList = VM.itemRef.get(itemSid)!
+            if (refList.length == 1) {
+                await Repo.deleteFromDb(ITEM_TABLE, VM.ALL_DATA.itemTable[itemSid])
+                delete VM.ALL_DATA.itemTable[itemSid]
+                VM.itemRef.delete(itemSid)
+            } else {
+                refList.splice(refList.indexOf(listName), 1)
             }
-        } else {
-            if (opt == SaveOpt.Insert) {
-                // 插入新列表，
-                // 如果数据库中已存在，拒绝插入，弹窗提示
-                if (allData.listTable[data.name] != undefined) {
-                    VM.newHint("同名列表已存在，列表不允许重名")
-                    return false
-                }
+        }
+    }
 
-                try {
-                    await Repo.saveToDB(LIST_TABLE, data)
-                    allData.orderMap.splice(row, 0, data.name)
-                    Repo.saveOrderMap(allData.orderMap)
-                    allData.listTable[data.name] = data
+    static async insertList(list: List, row: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        const map = VM.ALL_DATA.orderMap
+        // todo 插入位置
+        row = row + 1
+        try {
+            await Repo.saveToDB(LIST_TABLE, list)
+            map.splice(row, 0, list.name)
+            Repo.saveOrderMap(map)
+            VM.ALL_DATA.listTable[list.name] = list
+            VM.VUE_DATA.orderList.splice(row, 0, list)
+            VM.VUE_DATA.orderItem.splice(row, 0, [])
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
+        }
+        return true
+    }
 
-                    vueData.orderList.splice(row, 0, data)
-                    vueData.orderItem.splice(row, 0, [])
-                } catch (error) {
-                    console.error(error)
-                    VM.newHint(VM.errorMsg)
-                    return false
-                }
+    static async updateList(list: List, row: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        list.date = getTime()
+        try {
+            await Repo.saveToDB(LIST_TABLE, list)
+            // VM.responsiveCopy(VM.VUE_DATA.orderList[row], list)
+            VM.responsiveCopy(VM.ALL_DATA.listTable[list.name], list)
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
+        }
+        return true
+    }
 
-            } else if (opt == SaveOpt.Update) {
-                // 修改列表，
-                // 如果数据库中已存在，询问是否合并列表
+    /** 将newV中的数据复制到oldV中，并删除oldV多余的属性 */
+    static responsiveCopy<T>(oldV: T, newV: T) {
+        for (const key in oldV) {
+            if (!(key in newV)) Vue.delete(oldV, key)
+        }
+        for (const key in newV) {
+            if (key in oldV) oldV[key] = newV[key]
+            else Vue.set(oldV, key, newV[key])
+        }
+    }
 
-                const old = vueData.orderList[row]
-                if (allData.listTable[data.name] != undefined) {
-                    VM.newHint("同名列表已存在，是否要合并列表",
-                        ["合并", async () => {
-                            try {
-
-
-                            } catch (error) {
-                                console.error(error)
-                                VM.newHint(VM.errorMsg)
-                            }
-                        }])
-                    return false
-                }
-
-                try {
-                    await Repo.saveToDB(LIST_TABLE, data)
-                    // sa
-                    // Repo.saveOrderMap(allData.orderMap)
-                } catch (error) {
-
-                }
-
-                allData.orderMap.splice(row, 1, data.name)
-                vueData.orderList.splice(row, 1, data)
-                vueData.orderItem.splice(row, 1, [])
-
-            }
-            allData.listTable[data.name] = data
+    static async deleteList(row: number): Promise<boolean> {
+        if (!VM.checkUpdateTime()) return false
+        const map = VM.ALL_DATA.orderMap
+        const list = VM.VUE_DATA.orderList[row]
+        try {
+            await Repo.deleteFromDb(LIST_TABLE, list)
+            map.splice(row, 1)
+            Repo.saveOrderMap(map)
+            delete VM.ALL_DATA.listTable[list.name]
+            VM.VUE_DATA.orderList.splice(row, 1)
+            VM.VUE_DATA.orderItem.splice(row, 1)
+            list.arr.forEach(sid => VM.deleteItemRef(sid, list.name))
+        } catch (error) {
+            console.error(error)
+            VM.newHint(VM.errorMsg)
+            return false
         }
         return true
     }
@@ -261,33 +257,55 @@ class VM {
         const list = VM.VUE_DATA.orderList[row]
         const itemInList: ItemSearchResult[] = []
         const itemInDb: ItemSearchResult[] = []
-        if (VM.ALL_DATA.itemTable[key] == undefined)
+        if (!VM.itemRef.has(key))
             itemInList.push({ item: new NormalItem(key), level: DataLevel.ItemNone })
 
-        for (const sid in VM.ALL_DATA.itemTable) {
-            if (VM.itemRef.get(sid) == undefined) continue
-            if (sid.indexOf(key) != -1) {
-                const item = VM.ALL_DATA.itemTable[sid]
-                if (VM.itemRef.get(sid)!.indexOf(list.name) != -1)
+        key = key.toLowerCase()
+        let item: Item
+        VM.itemRef.forEach((refList, sid) => {
+            item = VM.ALL_DATA.itemTable[sid]
+            if (sid.toLowerCase().includes(key) || item.extraInfo.toLowerCase().includes(key)) {
+                if (refList.includes(list.name))
                     itemInList.push({ item, level: DataLevel.ItemInList })
                 else
                     itemInDb.push({ item, level: DataLevel.ItemInDb })
             }
-        }
+        })
         return itemInList.concat(itemInDb)
     }
 
+    static searchList(key: string): ListSearchResult[] {
+        if (key == null || key.length == 0) return []
+        const map = VM.ALL_DATA.orderMap
+        const result: ListSearchResult[] = []
+        if (!map.includes(key))
+            result.push({ list: new NormalList(key), level: DataLevel.ListNone })
+
+        key = key.toLowerCase()
+        let list: List
+        map.forEach(listName => {
+            list = VM.ALL_DATA.listTable[listName]
+            if (listName.toLowerCase().includes(key) || list.extraInfo.toLowerCase().includes(key))
+                result.push({ list, level: DataLevel.ListInMap })
+        })
+        return result
+    }
+
     static checkUpdateTime() {
-        const errMsg = "当前页面不是最新数据，请不要同时打开两个页面，"
+        const errMsg = "当前页面不是最新数据，请不要同时打开两个页面"
         const time = Repo.loadUpdateTime()
         if (time != VM.updateTime) {
-            VM.newHint(errMsg, ["刷新页面", location.reload])
-            // throw new Error(errMsg);
+            VM.newHint(errMsg, ["刷新页面", location.reload.bind(location)])
             console.error(new Error(errMsg))
             return false
         }
         VM.updateTime = Repo.saveUpdateTime()
         return true
+    }
+
+    static getListRow(list: List) { return VM.ALL_DATA.orderMap.indexOf(list.name) }
+    static getItemCol(row: number, item: Item) {
+        return VM.VUE_DATA.orderList[row].arr.indexOf(item.sid)
     }
 
     static async clearData() {

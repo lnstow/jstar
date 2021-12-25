@@ -20,12 +20,12 @@
 
 <body>
     <div id="app" style="text-align: center;">
-        <div v-show="handleConflict.message!=''">
-            <p>{{handleConflict.message}}</p>
-            <input type="button" v-show="handleConflict.positive[0]!=''" :value="handleConflict.positive[0]"
-                @click="handleConflict.positive[1]()">
-            <input type="button" v-show="handleConflict.negative[0]!=''" :value="handleConflict.negative[0]"
-                @click="handleConflict.negative[1]()">
+        <div v-show="hint.message!=''">
+            <p>{{hint.message}}</p>
+            <input type="button" v-show="hint.positive[0]!=''" :value="hint.positive[0]"
+                @click="hint.positive[1]()">
+            <input type="button" v-show="hint.negative[0]!=''" :value="hint.negative[0]"
+                @click="hint.negative[1]()">
         </div>
         <br>
         <input id="import" style="display: inline;" type="file" accept=".jaStar" @change="importData($event)">

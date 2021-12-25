@@ -44,16 +44,17 @@
                     <v-col cols="auto">
 
                         <v-hover v-slot:default="{ hover }">
-                            <v-card @click="showListDialog(false,row)" :color="scoreColor.primary" ripple shaped
+                            <v-card @click="showListDialog(row)" :color="scoreColor.primary" ripple shaped
                                 :elevation="hover ? 24 : 6" class="transition-swing pa-2">
+                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute
+                                    @click.stop="deleteList(row)">
+                                    <v-icon>mdi-close</v-icon>
+                                </v-btn>
                                 <v-card-actions>
-                                    <v-btn @click.stop="showListDialog(true,row)">addList</v-btn>
+                                    <v-btn @click.stop="showSearchDialog(row,false)">+List</v-btn>
                                 </v-card-actions>
                                 <v-card-actions>
-                                    <v-btn @click.stop="showItemDialog(true,row)">addItem</v-btn>
-                                </v-card-actions>
-                                <v-card-actions>
-                                    <v-btn @click.stop="showSearchDialog(row)">search</v-btn>
+                                    <v-btn @click.stop="showSearchDialog(row,true)">+Item</v-btn>
                                 </v-card-actions>
                                 <v-card-text>
                                     {{list.name}}
@@ -71,10 +72,11 @@
 
                         <v-hover v-slot:default="{ hover }">
                             <v-card height="100%" :color="scoreColor[item.score]" ripple :elevation="hover ? 24 : 6"
-                                class="transition-swing" @click="showItemDialog(false,row,col)">
+                                class="transition-swing" @click="showItemDialog(row,col)">
                                 <!-- <v-alert width="100%" height="100%" border="left" :color="scoreColor[item.score]"
                                     colored-border class="pa-0 ma-0"> -->
-                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute>
+                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute
+                                    @click.stop="deleteItem(row,col)">
                                     <v-icon>mdi-close</v-icon>
                                 </v-btn>
 
@@ -100,53 +102,59 @@
                 <v-dialog :width="dialogWidth" v-model="showSearch">
                     <v-card>
                         <v-combobox counter maxlength=200 no-filter :search-input.sync="searchText"
-                            :items="searchResult" :loading="localLoading" autofocus clearable item-value="item.sid"
-                            :return-object="false" solo prefix="标题" :item-color="scoreColor.primary" loader-height=3
-                            :menu-props="{'max-width':dialogWidth,'nudge-top':-1}" :color="scoreColor.primary">
+                            :items="searchResult" :loading="localLoading" autofocus clearable solo
+                            :item-value="requestSearchItem?'item.sid':'list.name'" :return-object="false"
+                            :item-color="scoreColor.primary" :color="scoreColor.primary" loader-height=3
+                            :menu-props="{'max-width':dialogWidth,'nudge-top':-1}"
+                            :prefix="`${requestSearchItem?'Item ':'List '}标题`">
                             <template v-slot:item="{ item,on,attrs }">
-                                <v-list-item ripple @click="requestDialog(item)">
-                                    <v-icon v-if="item.level!=0">mdi-pencil</v-icon>
-                                    <v-icon v-if="item.level!=1">mdi-plus</v-icon>
-                                    <v-chip label :color="scoreColor[item.item.score]">
-                                        {{item.item.sid}}
+                                <v-list-item ripple @click="requestEditDialog(item)">
+                                    <v-icon v-if="requestSearchItem?(item.level!=0):(item.level!=3)">mdi-pencil</v-icon>
+                                    <v-icon v-if="requestSearchItem?(item.level!=1):(item.level!=4)">mdi-plus</v-icon>
+                                    <v-chip label
+                                        :color="requestSearchItem?scoreColor[item.item.score]:scoreColor.primary">
+                                        {{requestSearchItem?item.item.sid:item.list.name}}
                                     </v-chip>
+                                    {{requestSearchItem?item.item.extraInfo:item.list.arr}}
                                 </v-list-item>
                             </template>
                         </v-combobox>
                     </v-card>
                 </v-dialog>
 
-                <!-- 新建item -->
-                <v-dialog persistent width=700 :value="showList">
+                <v-dialog persistent width=400 :value="false">
+                    <v-card :color="scoreColor.primary">
+                        <v-card-text>
+                            <span class="py-2 d-flex justify-center">网络请求中...</span>
+                            <v-progress-linear indeterminate color="grey lighten-3"></v-progress-linear>
+                        </v-card-text>
+                    </v-card>
+                </v-dialog>
+
+                <!-- 新建list -->
+                <v-dialog persistent :width="dialogWidth" :value="showList">
                     <v-card>
                         <v-sheet :color="scoreColor.primary" height=56>
                             <v-card-title>
-                                <span class="text-h5">新建List</span>
+                                <span class="text-h5">{{dialogTitle()}}</span>
                             </v-card-title>
                         </v-sheet>
                         <v-card-text>
                             <br>
                             <v-row>
-                                <v-col cols="5">
-                                    <v-text-field v-model="newList.name" :color="scoreColor.primary" :rules="formRules"
-                                        counter="200" label="List Name" required>
-                                    </v-text-field>
-                                </v-col>
-                                <v-col cols="7">
-                                    <v-text-field v-model="newList.extraInfo" :color="scoreColor.primary" counter="800"
-                                        label="额外信息">
-                                    </v-text-field>
+                                <v-col cols="12">
+                                    <v-textarea counter maxlength=800 no-resize rows=3 filled dense
+                                        :color="scoreColor.primary" v-model="newList.extraInfo" label="额外信息">
+                                    </v-textarea>
                                 </v-col>
                             </v-row>
                             <v-row>
                                 <v-spacer></v-spacer>
                                 <v-col cols="auto">
                                     <!-- todo theme primary -->
-                                    <v-btn color="primary" text large @click="hideListDialog()">
-                                        取消
-                                    </v-btn>
+                                    <v-btn color="primary" text large @click="hideEditDialog()"> 取消 </v-btn>
                                     <v-btn :color="scoreColor.primary" text large @click="submitData()">
-                                        新建
+                                        {{submitBtnText()}}
                                     </v-btn>
                                 </v-col>
                             </v-row>
@@ -154,38 +162,24 @@
                     </v-card>
                 </v-dialog>
 
-                <v-row>
-                    <v-form ref="form" v-model="valid" lazy-validation>
-                    </v-form>
-                </v-row>
-                <!-- 新建list -->
-
-                <v-dialog persistent width=700 :value="showItem && newItem.type=='Normal'">
+                <!-- 编辑item -->
+                <v-dialog persistent :width="dialogWidth" :value="showItem && newItem.type=='Normal'">
                     <v-card>
-                        <!-- <template slot="progress">
-                                <v-progress-linear :color="scoreColor[newItem.score]" height=56 absolute>
-                                </v-progress-linear>
-                            </template> -->
                         <v-sheet :color="scoreColor[newItem.score]" height=56>
                             <v-card-title>
-                                <span class="text-h5">新建Item</span>
+                                <span class="text-h5">{{dialogTitle()}}</span>
                             </v-card-title>
                         </v-sheet>
                         <v-card-text>
                             <br>
                             <v-row>
-                                <v-col cols="5">
-                                    <v-text-field v-model="newItem.sid" :color="scoreColor[newItem.score]"
-                                        :rules="formRules" counter="200" label="Item Id" required>
-                                    </v-text-field>
-                                </v-col>
-                                <v-col cols="7">
-                                    <v-text-field v-model="newItem.extraInfo" :color="scoreColor[newItem.score]"
-                                        counter="800" label="额外信息">
-                                    </v-text-field>
+                                <v-col cols="12">
+                                    <v-textarea counter maxlength=800 no-resize rows=3 filled dense
+                                        v-model="newItem.extraInfo" :color="scoreColor[newItem.score]" label="额外信息">
+                                    </v-textarea>
                                 </v-col>
                             </v-row>
-                            <br>
+                            <!-- <br> -->
                             <v-chip-group v-model="newItem.score" column mandatory>
                                 <v-chip :value=10 :color="scoreColor[10]" filter>强提醒</v-chip>
                                 <v-chip :value=4 :color="scoreColor[4]" filter>4 分</v-chip>
@@ -207,11 +201,9 @@
                             <v-row>
                                 <v-spacer></v-spacer>
                                 <v-col cols="auto">
-                                    <v-btn text large @click="hideItemDialog()">
-                                        取消
-                                    </v-btn>
+                                    <v-btn text large @click="hideEditDialog()"> 取消 </v-btn>
                                     <v-btn :color="scoreColor.primary" text large @click="submitData()">
-                                        新建
+                                        {{submitBtnText()}}
                                     </v-btn>
                                 </v-col>
                             </v-row>
@@ -219,6 +211,21 @@
                     </v-card>
                 </v-dialog>
 
+                <v-dialog persistent width=400 :value="hint.message!=''">
+                    <v-card>
+                        <v-card-title>提示</v-card-title>
+                        <v-card-text>{{hint.message}}</v-card-text>
+                        <v-card-actions>
+                            <v-spacer></v-spacer>
+                            <v-btn text large v-show="hint.negative[0]!=''" @click="hint.negative[1]()">
+                                {{hint.negative[0]}}
+                            </v-btn>
+                            <v-btn text large v-show="hint.positive[0]!=''" @click="hint.positive[1]()">
+                                {{hint.positive[0]}}
+                            </v-btn>
+                        </v-card-actions>
+                    </v-card>
+                </v-dialog>
             </v-container>
         </v-app>
         <!-- <v-app>
@@ -271,25 +278,6 @@
         <div class="item-img-big"></div>
         <div class="item-video"></div>
     </div>
-
-    <!-- <div id="a2">
-        <ol>
-            <todo-item v-for="item in arr"
-            v-bind:item="item"
-            v-bind:key="item.id">
-            </todo-item>
-        </ol>
-            <v-app>
-                <div>
-                  <v-alert
-                    border="top"
-                    color="red lighten-2"
-                    dark
-                  >
-                    I'm an alert with a top border and red color
-                  </v-alert>
-                </v-app>
-    </div> -->
 </body>
 
 </html>

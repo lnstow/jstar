@@ -64,7 +64,9 @@ window.addEventListener("load", function () {
                 searchText: "",
                 searchResult: [],
                 requestSearchItem: false,
-                dialogWidth: 700
+                dialogWidth: 700,
+                cardWidth: 140,
+                cardHeight: 260,
             };
         },
         vuetify: new Vuetify(theme),
@@ -81,6 +83,7 @@ window.addEventListener("load", function () {
                 vue.clickInfo[1] = col;
                 vue.clickInfo[2] = item.level;
                 vue.newItem = Object.assign({}, item.item);
+                console.log(vue.newItem);
                 vue.showItem = true;
             },
             hideEditDialog: function () { vue.showList = false; vue.showItem = false; },
@@ -253,6 +256,7 @@ function debounce(fn, delay = 999) {
 }
 function test() {
     let time = 1;
+    VM.tryFetchItem();
     // setTimeout(() => {
     //     VM.VUE_DATA.orderItem[0][0].score = 6;
     //     (VM.VUE_DATA.orderItem[0][0] as Item).mixNewData(new JaDB("22"))

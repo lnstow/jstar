@@ -276,6 +276,10 @@ class VM {
         VM.updateTime = Repo.saveUpdateTime();
         return true;
     }
+    static getListRow(list) { return VM.ALL_DATA.orderMap.indexOf(list.name); }
+    static getItemCol(row, item) {
+        return VM.VUE_DATA.orderList[row].arr.indexOf(item.sid);
+    }
     static async clearData() {
         VM.checkUpdateTime();
         let allData = VM.ALL_DATA;
@@ -337,6 +341,22 @@ class VM {
         })();
     }
     static getVueData() {
+    }
+    static tryFetchItem() {
+        VM.fetch("https://javdb.com/actors/3Ppw");
+    }
+    static fetch(url) {
+        return fetch(url, {
+            method: "GET",
+            mode: "cors",
+        }).then(res => {
+            console.log(res);
+            console.log(res.headers);
+            console.log(res.body);
+            return res.text();
+        }).then(res => {
+            console.log(res);
+        }).catch(err => { console.warn(err); });
     }
 }
 VM.errorMsg = "出错了，请刷新后重试";

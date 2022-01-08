@@ -376,4 +376,22 @@ class VM {
     static getVueData() {
 
     }
+
+    static tryFetchItem() {
+        VM.fetch("https://javdb.com/actors/3Ppw")
+    }
+
+    static fetch(url: string) {
+        return fetch(url, {
+            method: "GET",
+            mode: "cors",
+        }).then(res => {
+            console.log(res)
+            console.log(res.headers);
+            console.log(res.body);
+            return res.text()
+        }).then(res => {
+            console.log(res);
+        }).catch(err => { console.warn(err) })
+    }
 }

@@ -37,15 +37,15 @@
                     </v-col>
                 </v-row>
                 <!-- todo  align="center" -->
-                <v-row align="stretch" align-content="start" justify="start" v-for="(list,row) in orderList"
-                    :key="list.name">
+                <v-row align-content="start" justify="start" v-for="(list,row) in orderList" :key="list.name">
 
                     <!-- 每一行的开头列 -->
                     <v-col cols="auto">
 
                         <v-hover v-slot:default="{ hover }">
                             <v-card @click="showListDialog(row)" :color="scoreColor.primary" ripple shaped
-                                :elevation="hover ? 24 : 6" class="transition-swing pa-2">
+                                :elevation="hover ? 24 : 6" class="transition-swing pa-2" :max-width="cardWidth"
+                                :min-width="cardWidth" :max-height="cardHeight" :min-height="cardHeight">
                                 <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute
                                     @click.stop="deleteList(row)">
                                     <v-icon>mdi-close</v-icon>
@@ -71,7 +71,7 @@
                     <v-col cols="auto" v-for="(item,col) in orderItem[row]" :key="item.sid">
 
                         <v-hover v-slot:default="{ hover }">
-                            <v-card height="100%" :color="scoreColor[item.score]" ripple :elevation="hover ? 24 : 6"
+                            <v-card :color="scoreColor[item.score]" ripple :elevation="hover ? 24 : 6"
                                 class="transition-swing" @click="showItemDialog(row,col)">
                                 <!-- <v-alert width="100%" height="100%" border="left" :color="scoreColor[item.score]"
                                     colored-border class="pa-0 ma-0"> -->
@@ -83,13 +83,13 @@
                                 <v-card-title style="overflow-y: hidden;height:50px;">
                                     {{item.sid}}
                                 </v-card-title>
-
                                 <v-card-subtitle>
+                                    <br>
                                     {{item.extraInfo}}
                                 </v-card-subtitle>
                                 <v-card-text>
                                     {{item.type}}
-                                    <br> <br>
+                                    <br>
                                     {{item.date}}
                                 </v-card-text>
                                 <!-- </v-alert> -->

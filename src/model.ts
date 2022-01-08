@@ -28,17 +28,6 @@ function getTime(): string {
     return d.toISOString().slice(0, 13).replace("T", "+")
 }
 
-function mixItem(oldData: Item, newData: Item) {
-    oldData.score = newData.score
-    oldData.date = newData.date
-    oldData.extraInfo += newData.extraInfo
-    // const isJaDB = (d: Item): d is JaDB => d.type == "JaDB"
-    // if (isJaDB(oldData)) {
-    //     oldData.
-    // }
-    return oldData
-}
-
 class JaDB implements Item {
     type: iType = "JaDB"
     constructor(public sid: string, public score: iScore = 0,

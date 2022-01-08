@@ -10,16 +10,6 @@ function getTime() {
     d.setUTCHours(d.getUTCHours() - d.getTimezoneOffset() / 60);
     return d.toISOString().slice(0, 13).replace("T", "+");
 }
-function mixItem(oldData, newData) {
-    oldData.score = newData.score;
-    oldData.date = newData.date;
-    oldData.extraInfo += newData.extraInfo;
-    // const isJaDB = (d: Item): d is JaDB => d.type == "JaDB"
-    // if (isJaDB(oldData)) {
-    //     oldData.
-    // }
-    return oldData;
-}
 class JaDB {
     constructor(sid, score = 0, extraInfo = "", date = getTime()) {
         this.sid = sid;

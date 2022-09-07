@@ -12,7 +12,18 @@ class VM {
                 positive[1]();
             }];
     }
+    static genericErrorHint(error, msg = VM.errorMsg) {
+        console.error(error);
+        if (error instanceof DOMException && error.name === "AbortError")
+            VM.newHint("网络请求超时，请确保你能访问 Github ，然后重试");
+        else if (error instanceof TypeError && error.message === "Failed to fetch")
+            VM.newHint("网络错误或跨域访问被禁止，要允许跨域访问，请查看帮助文档");
+        else
+            VM.newHint(msg);
+        return false;
+    }
     static async loadData() {
+        Remote.init();
         await Repo.openDB();
         const itemTable = await Repo.loadFromDB(ITEM_TABLE);
         const listTable = await Repo.loadFromDB(LIST_TABLE);
@@ -41,10 +52,14 @@ class VM {
         };
         VM.updateTime = Repo.saveUpdateTime();
         if (orderMap.length == 0) {
-            await VM.insertList(new NormalList("listName"), 0);
-            await VM.insertItem(new NormalItem("itemA"), 0);
-            await VM.insertItem(new NormalItem("itemB"), 0);
-            await VM.insertItem(new NormalItem("itemC"), 0);
+            await VM.insertList(new NormalList("点我查看列表简介"), 0);
+            await VM.insertItem(new NormalItem("itemA", 0, `点我输入附带信息
+                \n点
+                击右下角按钮保存\n点击弹窗外部可以取消修改`), 0);
+            await VM.insertItem(new NormalItem("itemB", 0, "点我打开item，右下角查看教程"), 0);
+            await VM.insertItem(new NormalItem("itemC", 0, "排序，介绍右下角图标。现在，学完可以删除啦"), 0);
+            // todo 用法//是什么 what is
+            vue.uis.show = true;
         }
         return VM.VUE_DATA;
     }
@@ -77,14 +92,22 @@ class VM {
         if (!VM.checkUpdateTime())
             return false;
         const list = VM.VUE_DATA.orderList[row];
-        list.date = getTime();
+        if (!VM.move)
+            list.date = getTime();
         try {
+            const redundant = list.arr.indexOf(item.sid);
             item.date = getTime();
-            await Repo.saveToDB(ITEM_TABLE, item);
+            if (VM.move)
+                Repo.saveToDB(ITEM_TABLE, item);
+            else
+                await Repo.saveToDB(ITEM_TABLE, item);
             if (col == -1)
                 col = VM.calculateCol(item, list);
             list.arr.splice(col, 0, item.sid);
-            await Repo.saveToDB(LIST_TABLE, list);
+            if (VM.move)
+                Repo.saveToDB(LIST_TABLE, list);
+            else
+                await Repo.saveToDB(LIST_TABLE, list);
             if (VM.itemRef.has(item.sid))
                 VM.responsiveCopy(VM.ALL_DATA.itemTable[item.sid], item);
             else
@@ -92,11 +115,12 @@ class VM {
             item = VM.ALL_DATA.itemTable[item.sid];
             VM.VUE_DATA.orderItem[row].splice(col, 0, item);
             VM.updateItemRef(item.sid, list.name);
+            // 删除列表中的重复item
+            if (redundant != -1 && !await VM.deleteItem(row, redundant < col ? redundant : redundant + 1))
+                return false;
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
-            return false;
+            return VM.genericErrorHint(error);
         }
         return true;
     }
@@ -104,18 +128,13 @@ class VM {
         if (!VM.checkUpdateTime())
             return false;
         item.date = getTime();
-        const list = VM.VUE_DATA.orderList[row];
-        list.date = getTime();
         try {
-            await Repo.saveToDB(LIST_TABLE, list);
             await Repo.saveToDB(ITEM_TABLE, item);
             // VM.responsiveCopy(VM.VUE_DATA.orderItem[row][col], item)
             VM.responsiveCopy(VM.ALL_DATA.itemTable[item.sid], item);
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
-            return false;
+            return VM.genericErrorHint(error);
         }
         return true;
     }
@@ -125,16 +144,16 @@ class VM {
         const list = VM.VUE_DATA.orderList[row];
         const item = VM.VUE_DATA.orderItem[row][col];
         try {
-            list.date = getTime();
             list.arr.splice(col, 1);
-            await Repo.saveToDB(LIST_TABLE, list);
+            if (VM.move)
+                Repo.saveToDB(LIST_TABLE, list);
+            else
+                await Repo.saveToDB(LIST_TABLE, list);
             VM.VUE_DATA.orderItem[row].splice(col, 1);
             VM.deleteItemRef(item.sid, list.name);
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
-            return false;
+            return VM.genericErrorHint(error);
         }
         return true;
     }
@@ -157,12 +176,40 @@ class VM {
             }
         }
     }
+    static async moveItem(fr, fc, tr, tc) {
+        if (!VM.checkUpdateTime())
+            return false;
+        try {
+            if (fr == tr) {
+                // 列表内移动item
+                const list = VM.VUE_DATA.orderList[fr];
+                list.arr.splice(tc, 0, list.arr.splice(fc, 1)[0]);
+                const items = VM.VUE_DATA.orderItem[fr];
+                items.splice(tc, 0, items.splice(fc, 1)[0]);
+                VM.updateItem(items[tc], tr, tc);
+                Repo.saveToDB(LIST_TABLE, list);
+                return true;
+            }
+            else {
+                // 跨列表移动item
+                VM.move = true;
+                const item = VM.VUE_DATA.orderItem[fr][fc];
+                if (!await VM.insertItem(item, tr, tc))
+                    return false;
+                return await VM.deleteItem(fr, fc);
+            }
+        }
+        catch (error) {
+            return VM.genericErrorHint(error);
+        }
+        finally {
+            VM.move = false;
+        }
+    }
     static async insertList(list, row) {
         if (!VM.checkUpdateTime())
             return false;
         const map = VM.ALL_DATA.orderMap;
-        // todo 插入位置
-        row = row + 1;
         try {
             await Repo.saveToDB(LIST_TABLE, list);
             map.splice(row, 0, list.name);
@@ -172,30 +219,29 @@ class VM {
             VM.VUE_DATA.orderItem.splice(row, 0, []);
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
-            return false;
+            return VM.genericErrorHint(error);
         }
         return true;
     }
-    static async updateList(list, row) {
+    static async updateList(list, row, time = true) {
         if (!VM.checkUpdateTime())
             return false;
-        list.date = getTime();
+        if (time)
+            list.date = getTime();
         try {
             await Repo.saveToDB(LIST_TABLE, list);
             // VM.responsiveCopy(VM.VUE_DATA.orderList[row], list)
             VM.responsiveCopy(VM.ALL_DATA.listTable[list.name], list);
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
-            return false;
+            return VM.genericErrorHint(error);
         }
         return true;
     }
     /** 将newV中的数据复制到oldV中，并删除oldV多余的属性 */
     static responsiveCopy(oldV, newV) {
+        if (oldV === newV)
+            return;
         for (const key in oldV) {
             if (!(key in newV))
                 Vue.delete(oldV, key);
@@ -222,9 +268,22 @@ class VM {
             list.arr.forEach(sid => VM.deleteItemRef(sid, list.name));
         }
         catch (error) {
-            console.error(error);
-            VM.newHint(VM.errorMsg);
+            return VM.genericErrorHint(error);
+        }
+        return true;
+    }
+    static async moveList(fromRow, toRow) {
+        if (!VM.checkUpdateTime())
             return false;
+        const map = VM.ALL_DATA.orderMap;
+        try {
+            map.splice(toRow, 0, map.splice(fromRow, 1)[0]);
+            Repo.saveOrderMap(map);
+            VM.VUE_DATA.orderList.splice(toRow, 0, VM.VUE_DATA.orderList.splice(fromRow, 1)[0]);
+            VM.VUE_DATA.orderItem.splice(toRow, 0, VM.VUE_DATA.orderItem.splice(fromRow, 1)[0]);
+        }
+        catch (error) {
+            return VM.genericErrorHint(error);
         }
         return true;
     }
@@ -240,17 +299,19 @@ class VM {
         let item;
         VM.itemRef.forEach((refList, sid) => {
             item = VM.ALL_DATA.itemTable[sid];
-            if (sid.toLowerCase().includes(key) || item.extraInfo.toLowerCase().includes(key)) {
+            if (sid.toLowerCase().includes(key) || item.info.toLowerCase().includes(key)) {
                 if (refList.includes(list.name))
                     itemInList.push({ item, level: 1 /* ItemInList */ });
                 else
                     itemInDb.push({ item, level: 2 /* ItemInDb */ });
             }
         });
-        return itemInList.concat(itemInDb);
+        itemInList.push.apply(itemInList, itemInDb);
+        return itemInList;
     }
     static searchList(key) {
-        if (key == null || key.length == 0)
+        if (key == null || key.length == 0
+            || key.includes(globalName.listSeparator))
             return [];
         const map = VM.ALL_DATA.orderMap;
         const result = [];
@@ -260,15 +321,14 @@ class VM {
         let list;
         map.forEach(listName => {
             list = VM.ALL_DATA.listTable[listName];
-            if (listName.toLowerCase().includes(key) || list.extraInfo.toLowerCase().includes(key))
+            if (listName.toLowerCase().includes(key) || list.info.toLowerCase().includes(key))
                 result.push({ list, level: 4 /* ListInMap */ });
         });
         return result;
     }
     static checkUpdateTime() {
-        const errMsg = "当前页面不是最新数据，请不要同时打开两个页面";
-        const time = Repo.loadUpdateTime();
-        if (time != VM.updateTime) {
+        const errMsg = "当前页面不是最新数据，请不要在多个标签页打开本页面";
+        if (Repo.loadUpdateTime() != VM.updateTime) {
             VM.newHint(errMsg, ["刷新页面", location.reload.bind(location)]);
             console.error(new Error(errMsg));
             return false;
@@ -281,84 +341,69 @@ class VM {
         return VM.VUE_DATA.orderList[row].arr.indexOf(item.sid);
     }
     static async clearData() {
-        VM.checkUpdateTime();
-        let allData = VM.ALL_DATA;
-        let vueData = VM.VUE_DATA;
-        allData.orderMap = [];
-        allData.listTable = {};
-        allData.itemTable = {};
-        // Bridge.VUE_DATA.orderList = []
-        // Bridge.VUE_DATA.orderItem = []
-        Vue.set(vue, "orderList", []);
-        Vue.set(vue, "orderItem", []);
-        Repo.clearData();
-        VM.updateTime = -1;
-        // init()
-        // SaveData.saveToLocal(Bridge.ALL_DATA.orderMap)
+        Repo.clearData(true);
+        location.reload();
     }
     static exportData() {
-        VM.checkUpdateTime();
+        if (!VM.checkUpdateTime())
+            return;
         const blob = new Blob([JSON.stringify(VM.ALL_DATA)], { type: 'data:text/plain;charset=utf-8' });
         const a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
-        a.download = `${getTime()}.jaStar`;
+        a.download = getTime() + globalName.fileExt;
         a.click();
         window.URL.revokeObjectURL(a.href);
     }
-    static importData(files) {
-        VM.checkUpdateTime();
+    static async importData(file) {
+        if (!VM.checkUpdateTime())
+            return;
         const errMsg = "文件格式错误，请重新选择";
-        (async () => {
-            try {
-                const file = files[0];
-                if (!file.name.includes(".jaStar"))
+        try {
+            if (!file.name.includes(globalName.fileExt))
+                throw new Error(errMsg);
+            const reader = new FileReader();
+            reader.onload = function () {
+                VM.importDataFromJson(this.result);
+            };
+            reader.onerror = () => { throw new Error(errMsg); };
+            reader.readAsText(file);
+        }
+        catch (error) {
+            VM.genericErrorHint(error, errMsg);
+        }
+    }
+    static async uploadData() {
+        withNetwork(async () => {
+            if (await Github.updateGist(JSON.stringify(VM.ALL_DATA)))
+                newToast("上传成功");
+        });
+    }
+    static async downloadData() {
+        withNetwork(async () => {
+            const data = await Github.getGistData();
+            if (data)
+                await VM.importDataFromJson(data);
+        });
+    }
+    static async importDataFromJson(data) {
+        const errMsg = "文件格式错误，请重新选择";
+        try {
+            if (typeof data == "string")
+                data = JSON.parse(data);
+            for (const key in VM.ALL_DATA) {
+                if (data[key] == undefined)
                     throw new Error(errMsg);
-                const reader = new FileReader();
-                reader.onload = async function () {
-                    try {
-                        let data = JSON.parse(this.result);
-                        for (const key in VM.ALL_DATA) {
-                            if (data[key] == undefined)
-                                throw new Error(errMsg);
-                        }
-                        await Repo.resetData(data);
-                        // todo 初始化的流程
-                        init();
-                    }
-                    catch (error) {
-                        console.error(error);
-                        VM.newHint(errMsg);
-                    }
-                };
-                reader.onerror =
-                    () => { throw new Error(errMsg); };
-                reader.readAsText(file);
             }
-            catch (error) {
-                console.error(error);
-                VM.newHint(errMsg);
-            }
-        })();
-    }
-    static getVueData() {
-    }
-    static tryFetchItem() {
-        VM.fetch("https://javdb.com/actors/3Ppw");
-    }
-    static fetch(url) {
-        return fetch(url, {
-            method: "GET",
-            mode: "cors",
-        }).then(res => {
-            console.log(res);
-            console.log(res.headers);
-            console.log(res.body);
-            return res.text();
-        }).then(res => {
-            console.log(res);
-        }).catch(err => { console.warn(err); });
+            await Repo.resetData(data);
+            location.reload();
+        }
+        catch (error) {
+            VM.genericErrorHint(error, errMsg);
+        }
     }
 }
 VM.errorMsg = "出错了，请刷新后重试";
 VM.emptyFunc = () => { };
+VM.hintCancelBtn = ["取消", VM.emptyFunc];
 VM.scoreFirst = true;
+VM.move = false;

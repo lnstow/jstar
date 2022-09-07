@@ -37,7 +37,7 @@ const darkColor = {
     1: "#388e3c",
     2: "#1976d2",
     3: "#512da8",
-    4: "#f57c00",
+    4: "#C18A26",// "#f57c00",
     0: "#616161",
     "-5": "#5d4037",    //zongse
     10: "#d32f2f",
@@ -54,8 +54,14 @@ const lightColor = {
     primary: "#78C2C4"      // #78C2C4 白群 青色
     // #66BAB7 水浅葱 青色 备选主色
 }
+const uic = {
+    dialogWidth: 700,
+    cardWidth: 140,
+    cardHeight: 260,
+}
 
-window.addEventListener("focus", () => vue.checkDataValid())
+window.addEventListener("focus", VM.checkUpdateTime)
+// window.addEventListener("error", VM.genericErrorHint)
 
 window.addEventListener("load", function () {
     initView()
@@ -65,9 +71,7 @@ window.addEventListener("load", function () {
             return {
                 orderItem: [],
                 orderList: [],
-                scoreColor: Repo.loadDark() ? darkColor : lightColor,
-                // todo rename
-                colors: {},
+                colorss: Repo.loadDark() ? darkColor : lightColor,
                 hint: {
                     message: "",
                     negative: ["", () => { }],
@@ -78,24 +82,48 @@ window.addEventListener("load", function () {
                 showList: false,
                 showItem: false,
                 showSearch: false,
-                showGlobal: false,
                 /** row,col,dataLevel */
                 clickInfo: [0, 0, DataLevel.ItemNone],
-                globalEditMode: false,
+                editMode: false,
                 networkMode: Repo.loadNetwork(),
                 localLoading: false,
                 networkLoading: false,
                 searchText: "",
                 searchResult: [],
                 requestSearchItem: false,
-                dialogWidth: 700,
-                cardWidth: 140,
-                cardHeight: 260,
+                uis: {
+                    show: false,
+                    search: false,
+                    token: "",
+                },
+                toast: {
+                    show: false,
+                    msg: "",
+                    btn: "",
+                    click: () => { }
+                },
             }
         },
         vuetify: new Vuetify(theme),
+        components: {
+            // https://github.com/kutlugsahin/vue-smooth-dnd/issues/167
+            // 'container': (window as any).VueSmoothDnd.Container,
+            // 'draggable': (window as any).VueSmoothDnd.Draggable,
+        },
         methods: {
-            checkDataValid: function () { VM.checkUpdateTime() },
+            moveEnd() { DndHelper.applyDrag() },
+            moveList(dropResult: DropResult) {
+                let i = removedIndex(dropResult)
+                if (i != null) DndHelper.prepareFrom(i)
+                i = addedIndex(dropResult)
+                if (i != null) DndHelper.prepareTo(i)
+            },
+            moveItem(row: number, dropResult: DropResult) {
+                let i = removedIndex(dropResult)
+                if (i != null) DndHelper.prepareFrom(row, i)
+                i = addedIndex(dropResult)
+                if (i != null) DndHelper.prepareTo(row, i)
+            },
             showListDialog: function (row: number, list: ListSearchResult
                 = { list: vue.orderList[row], level: DataLevel.ListInMap }) {
                 vue.clickInfo[0] = row
@@ -109,7 +137,6 @@ window.addEventListener("load", function () {
                 vue.clickInfo[1] = col
                 vue.clickInfo[2] = item.level
                 vue.newItem = Object.assign({}, item.item)
-                console.log(vue.newItem)
                 vue.showItem = true
             },
             hideEditDialog: function () { vue.showList = false; vue.showItem = false },
@@ -120,11 +147,11 @@ window.addEventListener("load", function () {
             // -> show(Item/List)Dialog -> submitData
             showSearchDialog: function (row: number, requestSearchItem: boolean) {
                 vue.clickInfo[0] = row
-                // 下一行是为了，搜索列表时，记录首次点击的行数，因为如果
-                // 点击搜索结果中的编辑按钮，需要改变当前行数
+                // 下一行是为了，搜索列表时，记录首次点击的行数，因为
+                // 创建多个列表时，需要保持每次插入位置都在当前行下面
                 vue.clickInfo[1] = row
                 vue.requestSearchItem = requestSearchItem
-                vue.searchText = ""
+                vue.searchText = null
                 vue.searchResult = []
                 vue.showSearch = true
             },
@@ -139,7 +166,6 @@ window.addEventListener("load", function () {
                 })
             },
             requestEditDialog: function (data: ItemSearchResult | ListSearchResult) {
-                vue.clickInfo[2] = data.level
                 switch (data.level) {
                     case DataLevel.ItemNone:
                     case DataLevel.ItemInDb:
@@ -152,7 +178,7 @@ window.addEventListener("load", function () {
                         vue.showItemDialog(vue.clickInfo[0], col, data)
                         break
                     case DataLevel.ListNone:
-                        vue.showListDialog(vue.clickInfo[1], data)
+                        vue.showListDialog(vue.clickInfo[1] + 1, data)
                         break
                     case DataLevel.ListInMap:
                         const row = VM.ALL_DATA.orderMap
@@ -161,7 +187,8 @@ window.addEventListener("load", function () {
                         break
                 }
             },
-            submitData: function (row: number = vue.clickInfo[0], col: number = vue.clickInfo[1]) {
+            submitData: function (row: number = vue.clickInfo[0],
+                col: number = vue.clickInfo[1]) {
                 const data = vue.showItem ? vue.newItem : vue.newList
                 const cb = vue.saveDataCallback
                 switch (vue.clickInfo[2] as DataLevel) {
@@ -186,71 +213,94 @@ window.addEventListener("load", function () {
                 if (vue == null) return ""
                 switch (vue.clickInfo[2] as DataLevel) {
                     case DataLevel.ItemNone: case DataLevel.ListNone: return "添加"
-                    case DataLevel.ItemInList: case DataLevel.ListInMap: return "编辑"
-                    case DataLevel.ItemInDb: return "编辑并添加"
+                    case DataLevel.ItemInList: case DataLevel.ListInMap: return "修改"
+                    case DataLevel.ItemInDb: return "修改并添加"
                     default: return ""
                 }
             },
             dialogTitle: function () {
                 if (vue == null) return ""
-                if (vue.showItem) return vue.submitBtnText() + vue.newItem.sid
-                else return vue.submitBtnText() + vue.newList.name
+                if (vue.showItem) return vue.submitBtnText() + '---' + vue.newItem.sid
+                else return vue.submitBtnText() + '---' + vue.newList.name
+            },
+            iconEdit(level: DataLevel = vue?.clickInfo?.[2]): boolean {
+                return level != DataLevel.ItemNone && level != DataLevel.ListNone
+            },
+            iconCreate(level: DataLevel = vue?.clickInfo?.[2]): boolean {
+                return level != DataLevel.ItemInList && level != DataLevel.ListInMap
+            },
+            switchListExpand: function (row: number) {
+                const list = vue.orderList[row] as List
+                list.e ^= 1
+                VM.updateList(list, row, false)
             },
             deleteList: function (row: number) {
                 VM.newHint("删除列表后不能撤销，你确定吗？",
-                    ["确定删除", () => VM.deleteList(row)],
-                    ["取消", VM.emptyFunc])
+                    ["确定删除", () => VM.deleteList(row)], VM.hintCancelBtn)
             },
             deleteItem: function (row: number, col: number) {
-                vue.newList = vue.orderList[row]
                 vue.newItem = vue.orderItem[row][col]
-                VM.deleteItem(row, col)
+                VM.deleteItem(row, col).then(ok => {
+                    if (ok) newToast("已删除", ["撤销", () => {
+                        VM.insertItem(vue.newItem, row, col)
+                    }])
+                })
             },
             importData: function (ev: Event) {
                 const input = ev.target as HTMLInputElement
-                console.log(input.files);
-                console.log(input.value);
-
-
-                if (input.files != null) {
-                    const files = input.files
+                if (input.files != null && input.value) {
+                    const file = input.files[0]
                     input.value = ""
-
-                    VM.importData(files)
-
+                    VM.importData(file)
                 }
             },
-            exportData: function () {
-                VM.exportData()
+            aboutData(opt: string) {
+                switch (opt) {
+                    case "upload": VM.newHint("本地数据 将覆盖 远程数据",
+                        ["确定上传", VM.uploadData], VM.hintCancelBtn)
+                        break
+                    case "download": VM.newHint("远程数据 将覆盖 本地数据",
+                        ["确定下载", VM.downloadData], VM.hintCancelBtn)
+                        break
+                    case "clear": VM.newHint("清空本地数据？",
+                        ["确定", VM.clearData], VM.hintCancelBtn)
+                        break
+                    case "export": VM.exportData(); break
+                }
             },
-            clearData: function () {
-                VM.clearData()
+            aboutRemote(opt: string) {
+                switch (opt) {
+                    case "gist": shareUrl(true); break
+                    case "token": shareUrl(false); break
+                    case "help": Remote.gotoProject(); break
+                    case "access": Remote.gotoGist(); break
+                    case "edit": withNetwork(async () => {
+                        if (await Github.createGist(vue.uis.token))
+                            newToast("修改成功")
+                    })
+                }
             },
         },
         computed: {
-            va: function () {
-                return Object.keys(VM.ALL_DATA.itemTable)
-            },
-            vc: (a: unknown, b: unknown) => false,
-        }
+            uic() { return uic },
+        },
     })
 
     vue.$watch("searchText", (n, o) => {
-        console.log(`searchText: ${n}`)
+        if (n == '') vue.searchText = null
         if (vue.showSearch) vue.searchData()
     })
 
     vue.$watch<boolean>("$vuetify.theme.dark", (n, o) => {
         Repo.saveDark(n)
-        vue.scoreColor = n ? darkColor : lightColor
+        vue.colorss = n ? darkColor : lightColor
     })
     vue.$watch<boolean>("networkMode", (n, o) => Repo.saveNetwork(n))
     vue.$watch<boolean>("showItem", restoreSearchResult)
     vue.$watch<boolean>("showList", restoreSearchResult)
+
     init()
-
     test()
-
 })
 
 let tempData: any
@@ -264,29 +314,57 @@ function restoreSearchResult(otherDialogShow: boolean) {
 }
 
 function init() {
-    VM.loadData()
-        .then(v => {
-            vue.orderItem = v.orderItem
-            vue.orderList = v.orderList
-            vue.hint = v.hint
-            console.log(vue.orderItem)
-            console.log(vue.orderList)
-        })
+    VM.loadData().then(v => {
+        vue.orderItem = v.orderItem
+        vue.orderList = v.orderList
+        vue.hint = v.hint
+    })
 }
 
 let debounceTimer: number | null = null
-function debounce(fn: Function, delay: number = 999) {
+function debounce(fn: Function, delay: number = 500) {
     if (debounceTimer != null) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(fn, delay)
 }
 
+function shareUrl(forGist: boolean) {
+    copyText(Github.getShareUrl(forGist, !forGist))
+}
+
+async function copyText(text: string) {
+    try {
+        await navigator.clipboard.writeText(text)
+        newToast("已复制")
+    } catch (error) {
+        console.error(error)
+        newToast(text)
+    }
+}
+
+async function withNetwork(block: () => Promise<void>) {
+    if (!VM.checkUpdateTime()) return
+    vue.networkLoading = true
+    await block()
+    vue.networkLoading = false
+}
+
+function newToast(msg: string, btn: BtnCallback | null = null) {
+    vue.toast.msg = msg
+    vue.toast.btn = btn ? btn[0] : null
+    vue.toast.click = btn ? () => {
+        btn[1]()
+        vue.toast.show = false
+    } : null
+    vue.toast.show = true
+}
+
 function test() {
+    // todo 重新设计卡片，开关=元素后方插入，如何在item后面位置插入
     let time = 1
-    VM.tryFetchItem()
 
     // setTimeout(() => {
     //     VM.VUE_DATA.orderItem[0][0].score = 6;
-    //     (VM.VUE_DATA.orderItem[0][0] as Item).mixNewData(new JaDB("22"))
+    //     (VM.VUE_DATA.orderItem[0][0] as Item).mixNewData(new JaDb("22"))
     //     vue.addList(0)
     //     vue.addList(2)
     //     vue.addList(3)
@@ -303,10 +381,9 @@ function test() {
         // vue.submitItem(0, 0)
         // VM.exportData()
         // VM.VUE_DATA.orderItem[0][0].score = 6
+        Github.test()
     }, time++ * 1000);
 }
-
-
 
 function initView() {
     Vue.component("score-radio", {
@@ -318,11 +395,6 @@ function initView() {
     </v-radio>`
     })
 }
-// 网络请求https://cn.vuejs.org/v2/guide/computed.html
-// vue.$watch('arr', function (newValue, oldValue) {
-//     console.log(oldValue)
-//     console.log(newValue)
-// })
 
 /*
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ ⣀⣀⡀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀
@@ -338,13 +410,48 @@ function initView() {
 ⠀⠈⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⡿⠋⠙⠛⠛⠛⠛⠛⠁⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣾⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢾⠿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-
-
-起风了
-三国
-热爱105
-
-SSIS-005
-MIDE-941
-SSIS-082
  */
+
+declare type DropResult = {
+    added: { newIndex: number } | null
+    removed: { oldIndex: number } | null
+    moved: { newIndex: number, oldIndex: number } | null
+}
+function removedIndex(result: DropResult) {
+    if (result.moved) return result.moved.oldIndex
+    if (result.removed) return result.removed.oldIndex
+    return null
+}
+function addedIndex(result: DropResult) {
+    if (result.moved) return result.moved.newIndex
+    if (result.added) return result.added.newIndex
+    return null
+}
+class DndHelper {
+    private static fromRow = -1
+    private static fromCol = -1
+    private static toRow = -1
+    private static toCol = -1
+    static prepareFrom(row: number, col: number = -1) {
+        this.fromRow = row
+        this.fromCol = col
+    }
+    static prepareTo(row: number, col: number = -1) {
+        this.toRow = row
+        this.toCol = col
+    }
+    static applyDrag() {
+        if (this.fromRow == -1 || this.toRow == -1) return
+        if ((this.fromRow == this.toRow) && (this.fromCol == this.toCol)) {
+            // do nothing but reset value
+        } else if (this.fromCol == -1) {
+            VM.moveList(this.fromRow, this.toRow)
+        } else {
+            VM.moveItem(this.fromRow, this.fromCol, this.toRow, this.toCol)
+        }
+        console.log(`from: ${this.fromRow}, ${this.fromCol} 
+        to: ${this.toRow}, ${this.toCol}`)
+
+        this.fromRow = this.fromCol = this.toRow = this.toCol = -1
+    }
+}

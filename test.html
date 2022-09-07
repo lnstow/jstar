@@ -8,11 +8,23 @@
     <title>jaStar</title>
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <!-- <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet"> -->
     <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.x/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuedraggable@2.x/dist/vuedraggable.umd.min.js"></script>
+
+    <!-- vue-slicksort https://github.com/Jexordexan/vue-slicksort -->
+    <!-- <script src="https://unpkg.com/vue-slicksort@latest/dist/vue-slicksort.min.js"></script> -->
+
+    <!-- vue-smooth-dnd https://github.com/kutlugsahin/vue-smooth-dnd -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/smooth-dnd@0.12.1/dist/index.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/vue-smooth-dnd@0.8.1/dist/vue-smooth-dnd.min.js"></script> -->
+
     <script src="dist/model.js"></script>
+    <script src="dist/remote.js"></script>
     <script src="dist/bridge.js"></script>
     <script src="dist/view.js"></script>
     <link href="main.css" rel="stylesheet">
@@ -22,21 +34,28 @@
     <div id="app" style="text-align: center;">
         <div v-show="hint.message!=''">
             <p>{{hint.message}}</p>
-            <input type="button" v-show="hint.positive[0]!=''" :value="hint.positive[0]"
-                @click="hint.positive[1]()">
-            <input type="button" v-show="hint.negative[0]!=''" :value="hint.negative[0]"
-                @click="hint.negative[1]()">
+            <input type="button" v-show="hint.positive[0]!=''" :value="hint.positive[0]" @click="hint.positive[1]()">
+            <input type="button" v-show="hint.negative[0]!=''" :value="hint.negative[0]" @click="hint.negative[1]()">
         </div>
         <br>
         <input id="import" style="display: inline;" type="file" accept=".jaStar" @change="importData($event)">
         <input type="button" value="click" onclick="document.querySelector('#import').click()">
 
-        <div v-for="(list,i1) in orderList" :key="list.name">
-            <p>{{list}}</p>
-            <p v-for="(item,i2) in orderItem[i1]" :key="item.sid">{{item}}</p>
-            <br>
-            <br>
-        </div>
+        <draggable :value="orderList" group="list" @end="moveEnd">
+
+            <div v-for="(list,i1) in orderList" :key="list.name">
+                <p>{{list}}</p>
+
+                <draggable :value="orderItem[i1]" group="item" @change="drop=>moveItem(i1,drop)">
+
+                    <p v-for="(item,i2) in orderItem[i1]" :key="item.sid">{{item}}</p>
+
+                </draggable>
+
+                <br>
+                <br>
+            </div>
+        </draggable>
     </div>
 </body>
 

@@ -1,59 +1,61 @@
 const ban = -5
 const mark = 10
 type iScore = 1 | 2 | 3 | 4 | 0 | typeof ban | typeof mark
-type iType = "JaDB" | "Jg0" | "JaBus" | "JaLib" | "Normal"
+const enum ItemType { JaDb, Jg0, JaBs, JaLb }
 // 不要在 Item或List 中定义非静态方法，
 // 因为从数据库读取出来的只有属性，
 // 只能调用 Item或List 类的静态方法
 interface Item {
     sid: string
-    type: iType
+    t?: ItemType
     score: iScore
-    date: string
-    extraInfo: string
+    date: string    // 排序时也更新
+    info: string
 }
 interface List {
     name: string
     arr: string[]
-    date: string
-    extraInfo: string
+    /** expand */
+    e: 0 | 1
+    date: string    // 插入新元素也更新
+    info: string
 }
 function isItem(data: Item | List): data is Item {
-    return "type" in data
+    return "score" in data
 }
 function getTime(): string {
-    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD+HH"
+    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD_HH"
     const d = new Date()
     d.setUTCHours(d.getUTCHours() - d.getTimezoneOffset() / 60)
-    return d.toISOString().slice(0, 13).replace("T", "+")
+    return d.toISOString().slice(0, 13).replace("T", "_")
 }
 
-class JaDB implements Item {
-    type: iType = "JaDB"
+class JaDb implements Item {
+    t: ItemType = ItemType.JaDb
     constructor(public sid: string, public score: iScore = 0,
-        public extraInfo = "", public date = getTime()) {
+        public info = "", public date = getTime()) {
 
-    }
-
-    static get(): string {
-        return "string"
     }
 }
 
 class NormalItem implements Item {
-    type: iType = "Normal"
     constructor(public sid: string, public score: iScore = 0,
-        public extraInfo = "", public date = getTime()) {
+        public info = "", public date = getTime()) {
 
     }
 }
 
 class NormalList implements List {
     constructor(public name: string, public arr: string[] = [],
-        public extraInfo: string = "", public date: string = getTime()) {
+        public info: string = "", public e: 0 | 1 = 1,
+        public date: string = getTime()) {
 
     }
+}
 
+const globalName = {
+    listSeparator: "$@`#",
+    fileExt: ".jaStar"
 }
 
 const ITEM_TABLE = "ja_item"
@@ -152,7 +154,6 @@ class Repo {
         })
     }
 
-
     static deleteFromDb<T extends keyof TableType>(tableName: T,
         ...data: TableType[T][]) {
         return new Promise((resolve, reject) => {
@@ -169,18 +170,21 @@ class Repo {
         })
     }
 
-    static clearData() {
+    static clearData(clearLs = false) {
         if (Repo.DB != undefined) {
             Repo.DB = undefined as unknown as IDBDatabase
             window.indexedDB.deleteDatabase("jaStar")
         }
+        localStorage.removeItem(Repo.lsKey.map)
+        if (!clearLs) return
+        Github.clearUser()
         for (const key in Repo.lsKey) {
             localStorage.removeItem((Repo.lsKey as TableObj<string>)[key])
         }
     }
 
-    static async resetData(data: AllData) {
-        Repo.clearData()
+    static async resetData(data: AllData, clearLs = false) {
+        Repo.clearData(clearLs)
         await Repo.openDB()
 
         const items: Item[] = []
@@ -205,12 +209,12 @@ class Repo {
     }
 
     static saveOrderMap(orderMap: string[]) {
-        localStorage.setItem(Repo.lsKey.map, orderMap.join("$@`#"))
+        localStorage.setItem(Repo.lsKey.map, orderMap.join(globalName.listSeparator))
     }
 
     static loadOrderMap(): string[] {
         const orderMap = localStorage.getItem(Repo.lsKey.map)
-        return orderMap == null ? [] : orderMap.split("$@`#")
+        return orderMap == null ? [] : orderMap.split(globalName.listSeparator)
     }
 
     static saveUpdateTime(): number {

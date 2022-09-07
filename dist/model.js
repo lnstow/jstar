@@ -2,43 +2,44 @@
 const ban = -5;
 const mark = 10;
 function isItem(data) {
-    return "type" in data;
+    return "score" in data;
 }
 function getTime() {
-    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD+HH"
+    // 将UTC时间转换为本地时间，输出格式"YYYY-MM-DD_HH"
     const d = new Date();
     d.setUTCHours(d.getUTCHours() - d.getTimezoneOffset() / 60);
-    return d.toISOString().slice(0, 13).replace("T", "+");
+    return d.toISOString().slice(0, 13).replace("T", "_");
 }
-class JaDB {
-    constructor(sid, score = 0, extraInfo = "", date = getTime()) {
+class JaDb {
+    constructor(sid, score = 0, info = "", date = getTime()) {
         this.sid = sid;
         this.score = score;
-        this.extraInfo = extraInfo;
+        this.info = info;
         this.date = date;
-        this.type = "JaDB";
-    }
-    static get() {
-        return "string";
+        this.t = 0 /* JaDb */;
     }
 }
 class NormalItem {
-    constructor(sid, score = 0, extraInfo = "", date = getTime()) {
+    constructor(sid, score = 0, info = "", date = getTime()) {
         this.sid = sid;
         this.score = score;
-        this.extraInfo = extraInfo;
+        this.info = info;
         this.date = date;
-        this.type = "Normal";
     }
 }
 class NormalList {
-    constructor(name, arr = [], extraInfo = "", date = getTime()) {
+    constructor(name, arr = [], info = "", e = 1, date = getTime()) {
         this.name = name;
         this.arr = arr;
-        this.extraInfo = extraInfo;
+        this.info = info;
+        this.e = e;
         this.date = date;
     }
 }
+const globalName = {
+    listSeparator: "$@`#",
+    fileExt: ".jaStar"
+};
 const ITEM_TABLE = "ja_item";
 const LIST_TABLE = "ja_list";
 class Repo {
@@ -127,17 +128,21 @@ class Repo {
             data.forEach(element => store.delete(isItem ? element.sid : element.name));
         });
     }
-    static clearData() {
+    static clearData(clearLs = false) {
         if (Repo.DB != undefined) {
             Repo.DB = undefined;
             window.indexedDB.deleteDatabase("jaStar");
         }
+        localStorage.removeItem(Repo.lsKey.map);
+        if (!clearLs)
+            return;
+        Github.clearUser();
         for (const key in Repo.lsKey) {
             localStorage.removeItem(Repo.lsKey[key]);
         }
     }
-    static async resetData(data) {
-        Repo.clearData();
+    static async resetData(data, clearLs = false) {
+        Repo.clearData(clearLs);
         await Repo.openDB();
         const items = [];
         for (const key in data.itemTable)
@@ -150,11 +155,11 @@ class Repo {
         Repo.saveOrderMap(data.orderMap);
     }
     static saveOrderMap(orderMap) {
-        localStorage.setItem(Repo.lsKey.map, orderMap.join("$@`#"));
+        localStorage.setItem(Repo.lsKey.map, orderMap.join(globalName.listSeparator));
     }
     static loadOrderMap() {
         const orderMap = localStorage.getItem(Repo.lsKey.map);
-        return orderMap == null ? [] : orderMap.split("$@`#");
+        return orderMap == null ? [] : orderMap.split(globalName.listSeparator);
     }
     static saveUpdateTime() {
         const time = new Date().getTime();

@@ -12,261 +12,339 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.x/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuedraggable@2.x/dist/vuedraggable.umd.min.js"></script>
+
     <script src="dist/model.js"></script>
+    <script src="dist/remote.js"></script>
     <script src="dist/bridge.js"></script>
     <script src="dist/view.js"></script>
     <link href="main.css" rel="stylesheet">
 </head>
 
 <body>
-    <div id="app">
-        <v-app>
-            <v-container>
-                <v-row align="center">
-                    <v-col cols="auto">
-                        <v-btn @click="clearData()">清空数据</v-btn>
-                    </v-col>
-                    <v-col cols="auto">
-                        <v-switch v-model="$vuetify.theme.dark" label="夜间模式"></v-switch>
-                    </v-col>
-                    <v-col cols="auto">
-                        <v-switch v-model="globalEditMode" label="编辑模式"></v-switch>
-                    </v-col>
-                    <v-col cols="auto">
-                        <v-switch v-model="networkMode" label="冲浪模式"></v-switch>
-                    </v-col>
-                </v-row>
-                <!-- todo  align="center" -->
-                <v-row align-content="start" justify="start" v-for="(list,row) in orderList" :key="list.name">
+    <v-app id="app">
+        <v-container>
+            <!-- todo  align="center" -->
+            <draggable direction="vertical" class="my-6" :delay=editMode?0:300 animation=150 :value="orderList"
+                @end="moveEnd" @change="moveList" force-fallback=true scroll-sensitivity=150 scroll-speed=30
+                swap-threshold=0.4>
+                <v-row v-for="(list,row) in orderList" :key="list.name" align-content="start" justify="start">
 
-                    <!-- 每一行的开头列 -->
-                    <v-col cols="auto">
+                    <!-- 列表按钮栏 -->
+                    <v-col cols="12">
+                        <v-row>
+                            <v-btn class="ml-3 " :color="colorss.primary" fab x-small
+                                @click.stop="switchListExpand(row)">
+                                <v-icon>{{list.e?"mdi-chevron-up":"mdi-chevron-down"}}</v-icon>
+                            </v-btn>
+                            <v-btn class="ml-3 " :color="colorss.primary" fab x-small
+                                @click.stop="showSearchDialog(row,false)">
+                                <v-icon>mdi-playlist-plus</v-icon>
+                            </v-btn>
+                            <v-btn class="ml-3 " :color="colorss.primary" fab x-small
+                                @click.stop="showSearchDialog(row,true)">
+                                <v-icon>mdi-plus</v-icon>
+                            </v-btn>
 
-                        <v-hover v-slot:default="{ hover }">
-                            <v-card @click="showListDialog(row)" :color="scoreColor.primary" ripple shaped
-                                :elevation="hover ? 24 : 6" class="transition-swing pa-2" :max-width="cardWidth"
-                                :min-width="cardWidth" :max-height="cardHeight" :min-height="cardHeight">
-                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute
-                                    @click.stop="deleteList(row)">
-                                    <v-icon>mdi-close</v-icon>
-                                </v-btn>
-                                <v-card-actions>
-                                    <v-btn @click.stop="showSearchDialog(row,false)">+List</v-btn>
-                                </v-card-actions>
-                                <v-card-actions>
-                                    <v-btn @click.stop="showSearchDialog(row,true)">+Item</v-btn>
-                                </v-card-actions>
-                                <v-card-text>
-                                    {{list.name}}
-                                    <br>
-                                    {{list.extraInfo}}
-                                    <br>
-                                    {{list.date}}
-                                </v-card-text>
-                            </v-card>
-                        </v-hover>
+                            <v-btn v-show="editMode" :color="colorss[10]" fab x-small @click="deleteList(row)"
+                                class="ml-4 ">
+                                <v-icon>mdi-close</v-icon>
+                            </v-btn>
+
+                            <v-chip ripple label class="ml-3 elevation-4 text-subtitle-1" :color="colorss.primary"
+                                @click="showListDialog(row)">
+                                {{list.name}}
+                            </v-chip>
+                            <v-chip class="ml-3 mr-1">{{list.date}}</v-chip>
+                            <span>{{list.info}}</spaan>
+                        </v-row>
+                        <v-divider></v-divider>
                     </v-col>
 
-                    <!-- 每一行的内容列 -->
-                    <v-col cols="auto" v-for="(item,col) in orderItem[row]" :key="item.sid">
+                    <!-- <transition-group name="slide-fade"> -->
+                    <v-slide-y-transition leave-absolute>
 
-                        <v-hover v-slot:default="{ hover }">
-                            <v-card :color="scoreColor[item.score]" ripple :elevation="hover ? 24 : 6"
-                                class="transition-swing" @click="showItemDialog(row,col)">
-                                <!-- <v-alert width="100%" height="100%" border="left" :color="scoreColor[item.score]"
-                                    colored-border class="pa-0 ma-0"> -->
-                                <v-btn v-show="globalEditMode" :color="scoreColor[10]" right top fab x-small absolute
-                                    @click.stop="deleteItem(row,col)">
-                                    <v-icon>mdi-close</v-icon>
-                                </v-btn>
+                        <!-- 收起列表 -->
+                        <v-col cols="12" v-if="!list.e">
+                            <draggable direction="horizontal" group="item" :delay=editMode?0:300 animation=150
+                                :value="orderItem[row]" @end="moveEnd" @change="drop=>moveItem(row,drop)"
+                                swap-threshold=0.4 force-fallback=true scroll-sensitivity=150 scroll-speed=30
+                                tag="v-row" :component-data="{attrs:{dense:true}}">
 
-                                <v-card-title style="overflow-y: hidden;height:50px;">
-                                    {{item.sid}}
-                                </v-card-title>
-                                <v-card-subtitle>
-                                    <br>
-                                    {{item.extraInfo}}
-                                </v-card-subtitle>
-                                <v-card-text>
-                                    {{item.type}}
-                                    <br>
-                                    {{item.date}}
-                                </v-card-text>
-                                <!-- </v-alert> -->
-                            </v-card>
-                        </v-hover>
-                    </v-col>
-
-                </v-row>
-
-                <v-dialog :width="dialogWidth" v-model="showSearch">
-                    <v-card>
-                        <v-combobox counter maxlength=200 no-filter :search-input.sync="searchText"
-                            :items="searchResult" :loading="localLoading" autofocus clearable solo
-                            :item-value="requestSearchItem?'item.sid':'list.name'" :return-object="false"
-                            :item-color="scoreColor.primary" :color="scoreColor.primary" loader-height=3
-                            :menu-props="{'max-width':dialogWidth,'nudge-top':-1}"
-                            :prefix="`${requestSearchItem?'Item ':'List '}标题`">
-                            <template v-slot:item="{ item,on,attrs }">
-                                <v-list-item ripple @click="requestEditDialog(item)">
-                                    <v-icon v-if="requestSearchItem?(item.level!=0):(item.level!=3)">mdi-pencil</v-icon>
-                                    <v-icon v-if="requestSearchItem?(item.level!=1):(item.level!=4)">mdi-plus</v-icon>
-                                    <v-chip label
-                                        :color="requestSearchItem?scoreColor[item.item.score]:scoreColor.primary">
-                                        {{requestSearchItem?item.item.sid:item.list.name}}
+                                <v-col cols="auto" v-for="(item,col) in orderItem[row]" :key="item.sid">
+                                    <v-chip label :color="colorss[item.score]" @click="showItemDialog(row,col)">
+                                        {{item.sid}}
                                     </v-chip>
-                                    {{requestSearchItem?item.item.extraInfo:item.list.arr}}
-                                </v-list-item>
-                            </template>
-                        </v-combobox>
-                    </v-card>
-                </v-dialog>
-
-                <v-dialog persistent width=400 :value="false">
-                    <v-card :color="scoreColor.primary">
-                        <v-card-text>
-                            <span class="py-2 d-flex justify-center">网络请求中...</span>
-                            <v-progress-linear indeterminate color="grey lighten-3"></v-progress-linear>
-                        </v-card-text>
-                    </v-card>
-                </v-dialog>
-
-                <!-- 新建list -->
-                <v-dialog persistent :width="dialogWidth" :value="showList">
-                    <v-card>
-                        <v-sheet :color="scoreColor.primary" height=56>
-                            <v-card-title>
-                                <span class="text-h5">{{dialogTitle()}}</span>
-                            </v-card-title>
-                        </v-sheet>
-                        <v-card-text>
-                            <br>
-                            <v-row>
-                                <v-col cols="12">
-                                    <v-textarea counter maxlength=800 no-resize rows=3 filled dense
-                                        :color="scoreColor.primary" v-model="newList.extraInfo" label="额外信息">
-                                    </v-textarea>
                                 </v-col>
-                            </v-row>
-                            <v-row>
-                                <v-spacer></v-spacer>
-                                <v-col cols="auto">
-                                    <!-- todo theme primary -->
-                                    <v-btn color="primary" text large @click="hideEditDialog()"> 取消 </v-btn>
-                                    <v-btn :color="scoreColor.primary" text large @click="submitData()">
-                                        {{submitBtnText()}}
-                                    </v-btn>
-                                </v-col>
-                            </v-row>
-                        </v-card-text>
-                    </v-card>
-                </v-dialog>
 
-                <!-- 编辑item -->
-                <v-dialog persistent :width="dialogWidth" :value="showItem && newItem.type=='Normal'">
-                    <v-card>
-                        <v-sheet :color="scoreColor[newItem.score]" height=56>
-                            <v-card-title>
-                                <span class="text-h5">{{dialogTitle()}}</span>
-                            </v-card-title>
-                        </v-sheet>
-                        <v-card-text>
-                            <br>
-                            <v-row>
-                                <v-col cols="12">
-                                    <v-textarea counter maxlength=800 no-resize rows=3 filled dense
-                                        v-model="newItem.extraInfo" :color="scoreColor[newItem.score]" label="额外信息">
-                                    </v-textarea>
-                                </v-col>
-                            </v-row>
-                            <!-- <br> -->
-                            <v-chip-group v-model="newItem.score" column mandatory>
-                                <v-chip :value=10 :color="scoreColor[10]" filter>强提醒</v-chip>
-                                <v-chip :value=4 :color="scoreColor[4]" filter>4 分</v-chip>
-                                <v-chip :value=3 :color="scoreColor[3]" filter>3 分</v-chip>
-                                <v-chip :value=2 :color="scoreColor[2]" filter>2 分</v-chip>
-                                <v-chip :value=1 :color="scoreColor[1]" filter>1 分</v-chip>
-                                <v-chip :value=0 :color="scoreColor[0]" filter>不评分</v-chip>
-                                <v-chip :value=-5 :color="scoreColor[-5]" filter>黑名单</v-chip>
-                            </v-chip-group>
-                            <!-- <v-radio-group v-model="newItem.score" row>
-                                <score-radio :score="10" :color="scoreColor[10]">强提醒</score-radio>
-                                <score-radio :score="4" :color="scoreColor[4]">4 分</score-radio>
-                                <score-radio :score="3" :color="scoreColor[3]">3 分</score-radio>
-                                <score-radio :score="2" :color="scoreColor[2]">2 分</score-radio>
-                                <score-radio :score="1" :color="scoreColor[1]">1 分</score-radio>
-                                <score-radio :score="0" :color="scoreColor[0]">不评分</score-radio>
-                                <score-radio :score="-5" :color="scoreColor[-5]">黑名单</score-radio>
-                            </v-radio-group> -->
-                            <v-row>
-                                <v-spacer></v-spacer>
-                                <v-col cols="auto">
-                                    <v-btn text large @click="hideEditDialog()"> 取消 </v-btn>
-                                    <v-btn :color="scoreColor.primary" text large @click="submitData()">
-                                        {{submitBtnText()}}
-                                    </v-btn>
-                                </v-col>
-                            </v-row>
-                        </v-card-text>
-                    </v-card>
-                </v-dialog>
+                            </draggable>
+                        </v-col>
 
-                <v-dialog persistent width=400 :value="hint.message!=''">
-                    <v-card>
-                        <v-card-title>提示</v-card-title>
-                        <v-card-text>{{hint.message}}</v-card-text>
-                        <v-card-actions>
+                    </v-slide-y-transition>
+                    <v-scroll-y-transition hide-on-leave>
+
+                        <!-- 展开列表 -->
+                        <v-col cols="12" v-if="list.e">
+
+                            <!-- todo align="stretch"，dense缩小距离，调整卡片阴影（使用card自带的hover属性） -->
+                            <draggable direction="horizontal" group="item" :delay=editMode?0:300 animation=150
+                                :value="orderItem[row]" @end="moveEnd" @change="drop=>moveItem(row,drop)"
+                                swap-threshold=0.4 force-fallback=true scroll-sensitivity=150 scroll-speed=30
+                                tag="v-row" :component-data="{attrs:{dense:true}}">
+
+                                <v-col class="pa-2" cols="auto" v-for="(item,col) in orderItem[row]" :key="item.sid">
+
+                                    <v-hover v-if="true" v-slot:default="{ hover }">
+                                        <v-card :color="colorss[item.score]" ripple class="transition-swing"
+                                            :elevation="hover ? 24 : 6" @click="showItemDialog(row,col)">
+                                            <!-- <v-alert width="100%" height="100%" border="left" :color="colorss[item.score]"
+                                    colored-border class="pa-0 ma-0"> -->
+                                            <v-btn v-show="editMode" :color="colorss[10]" fab x-small absolute
+                                                style="right: -10px;top: -10px;" @click.stop="deleteItem(row,col)">
+                                                <v-icon>mdi-close</v-icon>
+                                            </v-btn>
+
+                                            <v-card-title style="overflow-y: hidden;height:50px;">
+                                                {{item.sid}}
+                                            </v-card-title>
+                                            <v-card-subtitle>
+                                                <br>
+                                                {{item.info}}
+                                            </v-card-subtitle>
+                                            <!-- <v-card-actions>
+                                                    <v-btn @click.stop="showSearchDialog(row,true)">+Item</v-btn>
+                                                </v-card-actions> -->
+                                            <v-card-text>
+                                                <br>
+                                                {{item.date}}
+                                            </v-card-text>
+                                            <!-- </v-alert> -->
+                                        </v-card>
+                                    </v-hover>
+                                </v-col>
+                            </draggable>
+                        </v-col>
+
+                    </v-scroll-y-transition>
+                    <!-- </transition-group> -->
+
+                </v-row>
+            </draggable>
+
+            <v-dialog :width="uic.dialogWidth" v-model="showSearch">
+                <v-card>
+                    <v-combobox counter maxlength=200 no-filter :search-input.sync="searchText" :items="searchResult"
+                        :loading="localLoading" autofocus clearable solo
+                        :item-value="requestSearchItem?'item.sid':'list.name'" :return-object="false"
+                        :item-color="colorss.primary" :color="colorss.primary" loader-height=3
+                        :menu-props="{'max-width':uic.dialogWidth,'nudge-top':-1}"
+                        :prefix="`${requestSearchItem?'Item':'List'} 标题`" placeholder="    输入以创建或编辑">
+                        <template v-slot:item="{ item,on,attrs }">
+                            <v-list-item ripple @click="requestEditDialog(item)">
+                                <v-icon v-if="iconEdit(item.level)">mdi-pencil</v-icon>
+                                <v-icon v-if="iconCreate(item.level)">mdi-plus</v-icon>
+                                <v-chip label class="mx-2"
+                                    :color="requestSearchItem?colorss[item.item.score]:colorss.primary">
+                                    {{requestSearchItem?item.item.sid:item.list.name}}
+                                </v-chip>
+                                {{requestSearchItem?item.item.info:item.list.info}}
+                            </v-list-item>
+                        </template>
+                    </v-combobox>
+                </v-card>
+            </v-dialog>
+            <v-dialog persistent width=400 :value="networkLoading">
+                <v-card :color="colorss.primary">
+                    <v-card-text>
+                        <span class="py-2 d-flex justify-center text-body-1">网络请求中...</span>
+                        <v-progress-linear indeterminate color="grey lighten-3"></v-progress-linear>
+                    </v-card-text>
+                </v-card>
+            </v-dialog>
+
+            <!-- 编辑list -->
+            <v-dialog :width="uic.dialogWidth" v-model="showList" :retain-focus="false">
+                <v-card>
+                    <v-sheet :color="colorss.primary" height=56>
+                        <v-card-title>
+                            <span class="text-h5">{{dialogTitle()}}</span>
+                        </v-card-title>
+                    </v-sheet>
+                    <v-card-text>
+                        <br>
+                        <v-row>
+                            <v-col cols="12">
+                                <v-textarea counter maxlength=800 no-resize rows=3 filled dense autofocus
+                                    v-model="newList.info" :color="colorss.primary" label="额外信息">
+                                </v-textarea>
+                            </v-col>
+                        </v-row>
+                        <v-row>
                             <v-spacer></v-spacer>
-                            <v-btn text large v-show="hint.negative[0]!=''" @click="hint.negative[1]()">
-                                {{hint.negative[0]}}
-                            </v-btn>
-                            <v-btn text large v-show="hint.positive[0]!=''" @click="hint.positive[1]()">
-                                {{hint.positive[0]}}
-                            </v-btn>
-                        </v-card-actions>
-                    </v-card>
-                </v-dialog>
-            </v-container>
-        </v-app>
-        <!-- <v-app>
-            <v-card class="mx-auto" max-width="344">
-                <v-card-text>
-                    <div>Word of the Day</div>
-                    <p class="display-1 text--primary">
-                        el·ee·mos·y·nar·y
-                    </p>
-                    <p>adjective</p>
-                    <div class="text--primary">
-                        relating to or dependent on charity; charitable.<br>
-                        "an eleemosynary educational institution."
-                    </div>
-                </v-card-text>
-                <v-card-actions>
-                    <v-btn text color="teal accent-4" @click="reveal = true">
-                        Learn More
+                            <v-col cols="auto">
+                                <!-- <v-btn text large @click="hideEditDialog()"> 取消 </v-btn> -->
+                                <v-btn :color="colorss.primary" large @click="submitData()">
+                                    <v-icon v-show="iconEdit()">mdi-pencil</v-icon>
+                                    <v-icon v-show="iconCreate()">mdi-plus</v-icon>
+                                    <!-- {{submitBtnText()}} -->保存
+                                </v-btn>
+                            </v-col>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+            </v-dialog>
+
+            <!-- 编辑item -->
+            <v-dialog :width="uic.dialogWidth" v-model="showItem" :retain-focus="false">
+                <v-card>
+                    <v-sheet :color="colorss[newItem.score]" height=56>
+                        <v-card-title>
+                            <span class="text-h5">{{dialogTitle()}}</span>
+                        </v-card-title>
+                    </v-sheet>
+                    <v-card-text>
+                        <br>
+                        <v-row>
+                            <v-col cols="12">
+                                <v-textarea counter maxlength=800 no-resize rows=3 filled dense autofocus
+                                    v-model="newItem.info" :color="colorss[newItem.score]" label="额外信息">
+                                </v-textarea>
+                            </v-col>
+                        </v-row>
+                        <v-chip-group v-model="newItem.score" column mandatory>
+                            <v-chip :value=10 :color="colorss[10]" filter>强提醒</v-chip>
+                            <v-chip :value=4 :color="colorss[4]" filter>4 分</v-chip>
+                            <v-chip :value=3 :color="colorss[3]" filter>3 分</v-chip>
+                            <v-chip :value=2 :color="colorss[2]" filter>2 分</v-chip>
+                            <v-chip :value=1 :color="colorss[1]" filter>1 分</v-chip>
+                            <v-chip :value=0 :color="colorss[0]" filter>不评分</v-chip>
+                            <v-chip :value=-5 :color="colorss[-5]" filter>黑名单</v-chip>
+                        </v-chip-group>
+                        <!-- <v-radio-group v-model="newItem.score" row>
+                                <score-radio :score="10" :color="colorss[10]">强提醒</score-radio>
+                                <score-radio :score="4" :color="colorss[4]">4 分</score-radio>
+                                <score-radio :score="3" :color="colorss[3]">3 分</score-radio>
+                                <score-radio :score="2" :color="colorss[2]">2 分</score-radio>
+                                <score-radio :score="1" :color="colorss[1]">1 分</score-radio>
+                                <score-radio :score="0" :color="colorss[0]">不评分</score-radio>
+                                <score-radio :score="-5" :color="colorss[-5]">黑名单</score-radio>
+                            </v-radio-group> -->
+                        <v-row>
+                            <v-spacer></v-spacer>
+                            <v-col cols="auto">
+                                <!-- <v-btn text large @click="hideEditDialog()"> 取消 </v-btn> -->
+                                <v-btn :color="colorss.primary" large @click="submitData()">
+                                    <v-icon v-show="iconEdit()">mdi-pencil</v-icon>
+                                    <v-icon v-show="iconCreate()">mdi-plus</v-icon>
+                                    <!-- {{submitBtnText()}} -->保存
+                                </v-btn>
+                            </v-col>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+            </v-dialog>
+
+            <v-dialog persistent width=400 :value="hint.message!=''">
+                <v-card>
+                    <v-card-title>{{hint.message}}</v-card-title>
+                    <!-- <v-card-text>{{hint.message}}</v-card-text> -->
+                    <v-card-actions>
+                        <v-spacer></v-spacer>
+                        <v-btn text large v-show="hint.negative[0]!=''" @click="hint.negative[1]()">
+                            {{hint.negative[0]}}
+                        </v-btn>
+                        <v-btn text large v-show="hint.positive[0]!=''" @click="hint.positive[1]()">
+                            {{hint.positive[0]}}
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+
+            <!-- 搜索排序 -->
+            <!-- <v-btn class="ma-6" :color="colorss.primary" fixed fab right bottom large
+                    @click.stop="uis.search=true" style="bottom:92px">
+                    <v-icon color="white">mdi-magnify</v-icon>
+                </v-btn> -->
+
+            <!-- 底部设置 -->
+            <v-btn class="ma-6" :color="colorss.primary" fixed fab right bottom large @click.stop="uis.show=true">
+                <v-icon color="white">mdi-menu</v-icon>
+            </v-btn>
+            <v-bottom-sheet v-model="uis.show" inset>
+                <v-sheet height="300px" class="rounded-t-xl pa-5">
+                    <v-row>
+                        <v-col cols="auto">
+                            <v-switch v-model="$vuetify.theme.dark" label="夜间模式"></v-switch>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-switch v-model="editMode" label="编辑模式"></v-switch>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-switch v-model="networkMode" label="冲浪模式"></v-switch>
+                        </v-col>
+                    </v-row>
+                    <v-divider class="mb-5"></v-divider>
+                    <v-row>
+                        <v-col cols="auto">
+                            <v-text-field v-model="uis.token" dense label="远程账号"></v-text-field>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn @click="aboutRemote('edit')">修改</v-btn>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-menu top open-on-hover open-delay=800 offset-y transition="scroll-x-transition">
+                                <template v-slot:activator="{ on, attrs }">
+                                    <v-btn dark :color="colorss.primary" v-bind="attrs" v-on="on"
+                                        @click="aboutRemote('help')"> 帮助/关于 </v-btn>
+                                </template>
+                                <v-list>
+                                    <v-list-item @click="aboutRemote('gist')">
+                                        <v-list-item-title>分享数据</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item @click="aboutRemote('token')">
+                                        <v-list-item-title>分享账号</v-list-item-title>
+                                    </v-list-item>
+                                    <v-list-item @click="aboutRemote('access')">
+                                        <v-list-item-title>远程数据</v-list-item-title>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                        </v-col>
+                    </v-row>
+                    <v-divider class="mb-3"></v-divider>
+                    <v-row>
+                        <v-col cols="auto">
+                            <v-btn @click="aboutData('upload')">远程上传</v-btn>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn @click="aboutData('download')">远程下载</v-btn>
+                        </v-col>
+                        <v-col cols="auto">
+                            <input id="importBtn" style="display: none;" type="file" accept=".jaStar"
+                                @change="importData($event)">
+                            <v-btn onclick="document.querySelector('#importBtn').click()">导入</v-btn>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn @click="aboutData('export')">导出</v-btn>
+                        </v-col>
+                        <v-col cols="auto" v-if="editMode">
+                            <v-btn outlined :color="colorss[10]" @click="aboutData('clear')">清空数据</v-btn>
+                        </v-col>
+                    </v-row>
+                </v-sheet>
+            </v-bottom-sheet>
+
+            <v-snackbar :color="colorss.primary" shaped timeout="2200" v-model="toast.show">
+                {{toast.msg}}
+                <template v-slot:action="{ attrs }">
+                    <v-btn v-show="toast.btn" rounded outlined v-bind="attrs" @click="toast.click()">
+                        {{toast.btn}}
                     </v-btn>
-                </v-card-actions>
-    
-                <v-expand-transition>
-                    <v-card v-if="reveal" class="transition-fast-in-fast-out v-card--reveal" style="height: 100%;">
-                        <v-card-text class="pb-0">
-                            <p class="display-1 text--primary">
-                                Origin
-                            </p>
-                            <p>late 16th century (as a noun denoting a place where alms were distributed): from medieval
-                                Latin eleemosynarius, from late Latin eleemosyna ‘alms’, from Greek eleēmosunē ‘compassion’
-                            </p>
-                        </v-card-text>
-                        <v-card-actions class="pt-0">
-                            <v-btn text color="teal accent-4" @click="reveal = false">
-                                Close
-                            </v-btn>
-                        </v-card-actions>
-                    </v-card>
-                </v-expand-transition>
-            </v-card>
-        </v-app> -->
-    </div>
+                </template>
+            </v-snackbar>
+        </v-container>
+    </v-app>
     <div class="item">
         <div class="item-img"></div>
         <div class="item-id"></div>

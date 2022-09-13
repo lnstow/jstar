@@ -209,29 +209,196 @@ class Remote {
 
     static init() {
         Github.loadUser()
-        Remote.tryFetchItem()
+        PM.start()
     }
 
     static gotoProject() { window.open("https://github.com/lnstow/jstar") }
     static gotoGist() { window.open(`https://gist.github.com/${Github['gist']}`) }
-
-    static tryFetchItem() {
-        // Remote.fetch()
-    }
-
-    static async fetch(url: string) {
+    static async fetch(url: string, cors = true) {
         try {
             const res = await fetch(url, {
                 method: "GET",
-                mode: "cors",
+                mode: cors ? "cors" : "no-cors",
+                signal: Remote.timeout(15000),
             })
-            console.log(res)
-            console.log(res.headers)
-            console.log(res.body)
-            const res_1 = await res.text()
-            console.log(res_1)
+            return await res.text()
         } catch (err) {
             console.warn(err)
+            return ""
         }
+    }
+}
+
+interface ItemParser<T extends Item> {
+    domain: string
+    rejectCheck: 3
+    build(): T
+    isValid: boolean
+    checkValid(): Promise<boolean>
+    parseItemProp(item: T, key: string, value: string): string
+    tryFetch(sid: string): Promise<string>
+    tryParse(html: string, temp: T): Promise<boolean>
+}
+class PM {
+    private static firstIdx = 0
+    private static parserArr: ItemParser<Item>[] = [
+        {
+            domain: "https://javdb.com",
+            rejectCheck: 3,
+            build() { return new JaDb("") },
+            isValid: true,
+            async checkValid() {
+                if (this.isValid) return true
+                if (this.rejectCheck <= 0) return this.isValid
+                this.rejectCheck--
+                this.isValid =
+                    (await Remote.fetch(`${this.domain}/v/0RRwDa`)).length != 0
+                return this.isValid
+            },
+            parseItemProp(item: JaDb, key, value) {
+                switch (key) {
+                    case "a1": return this.domain + '/v/' + item.c!.slice(item.c!.indexOf('/') + 1)
+                    case "a2": return 'https://javfinder.li/search/movie/' + item.sid
+                    case "a3": return 'https://missav.com/search/' + item.sid
+                    case "a4": return 'https://jable.tv/search/' + item.sid + '/'
+                    // 'https://jav.guru/?s=' + item.sid
+                    // 'https://javdoe.to/search/movie/' + item.sid
+                    // 'https://javfree.la/search/movie/' + item.sid
+                    // 'https://www2.javhdporn.net/search/' + item.sid
+                    // 'https://avgle.com/search/videos?search_type=videos&search_query='+item.sid
+                    case "a5": return 'https://netflav.com/search?type=title&keyword=' + item.sid
+                    case "a6": return 'https://supjav.com/?s=' + item.sid
+                    case "c2":
+                        if (item.v == undefined) {
+                            if (item.c == undefined)
+                                return 'https://pics.dmm.co.jp/mono/movie/n/now_printing/now_printing.jpg'
+                            else {
+                                const v = item.sid.replace('-', '')
+                                return `https://pics.dmm.co.jp/mono/movie/adult/${v}/${v}ps.jpg`
+                            }
+                        }
+                        const v = item.v.slice(item.v.lastIndexOf('/') + 1)
+                        return `https://pics.dmm.co.jp/digital/video/${v}/${v}ps.jpg`
+                    case 'c': return `https://c0.jdbstatic.com/covers/${value}.jpg`
+                    case 'v': {
+                        if (value == undefined) return ''
+                        const v = value.slice(value.lastIndexOf('/') + 1)
+                        return `https://cc3001.dmm.co.jp/litevideo/freepv/${value}/${v}_dm_w.mp4`
+                    } default: return value
+                }
+            },
+            async tryFetch(sid) {
+                const res = await Remote.fetch(`${this.domain}/search?q=${sid}&f=all`)
+                if (res.length == 0) this.isValid = false
+                return res
+            },
+            async tryParse(html, temp: JaDb) {
+                let i1 = 0, i2 = 0
+
+                i1 = html.indexOf('-lis')
+                if (i1 == -1) return false
+                i1 = html.indexOf('href', i1 + 10) + 6
+                i2 = html.indexOf('"', i1)
+                const url = html.slice(i1, i2)
+                if (url.length == 0) return false
+
+                i1 = html.indexOf('src', i2 + 10) + 5
+                i2 = html.indexOf('"', i1 + 10)
+                const cov = html.slice(i1, i2)
+                if (!cov.startsWith("http")
+                    || !cov.endsWith("jpg")) return false
+
+                i1 = html.indexOf('g>', i2 + 10) + 2
+                i2 = html.indexOf('<', i1)
+                if (html.slice(i1, i2).toLowerCase()
+                    != temp.sid.toLowerCase()) return false
+
+                temp.c = cov.slice(cov.indexOf('rs/') + 3, cov.lastIndexOf('.'))
+                html = await Remote.fetch(`${this.domain}${url}`)
+                if (html.length == 0) return false
+
+                i1 = html.indexOf('ysi')
+                if (i1 == -1) return false
+                i1 = html.indexOf('src', i1 + 10) + 5
+                i2 = html.indexOf('"', i1)
+                const v = html.slice(i1, i2)
+                if (v.length == 0 || !v.startsWith("//")
+                    || !v.endsWith("mp4")) return true
+
+                temp.v = v.slice(v.indexOf('pv/') + 3, v.lastIndexOf('/'))
+                return true
+            },
+        }
+    ]
+
+    private static async testConnect(striceIdx = -1): Promise<boolean> {
+        if (striceIdx != -1)
+            return await PM.parserArr[striceIdx].checkValid()
+        for (let i = 0; i < PM.parserArr.length; i++) {
+            if (await PM.parserArr[i].checkValid()) {
+                PM.firstIdx = i
+                return true
+            }
+        }
+        return false
+    }
+
+    static parseItemProp<T extends Item, K extends string & keyof T>(
+        item: T, key: K, value: T[K] & string): string {
+        if (item.t == undefined) return value
+        return PM.parserArr[item.t].parseItemProp(item, key, value)
+    }
+
+    private static queue: [Item, boolean, ItemType][] = []
+    static push(item: Item, strictMode = false,
+        startIdx: ItemType = item.t ? item.t : PM.firstIdx) {
+        for (const arr of PM.queue) {
+            if (arr[0].sid == item.sid) return
+        }
+        PM.queue.push([item, strictMode, startIdx])
+        if (PM.queue.length == 1 && PM.isStart) PM.tryUpdate()
+    }
+
+    private static isStart = false
+    static async start() {
+        if (vue.networkMode) await PM.testConnect()
+        PM.isStart = true
+        if (PM.queue.length != 0) PM.tryUpdate()
+    }
+
+    private static async tryUpdate() {
+        if (!vue.networkMode) return PM.next()
+        const item = PM.queue[0][0]
+        const strictMode = PM.queue[0][1]
+        const startIdx = PM.queue[0][2]
+
+        let p = PM.parserArr[startIdx]
+        if (strictMode && !p.isValid
+            && !await PM.testConnect(startIdx))
+            return PM.next()
+
+        if (!p.isValid) p = PM.parserArr[PM.firstIdx]
+        if (!p.isValid) {
+            if (!await PM.testConnect()) return PM.next()
+            else p = PM.parserArr[PM.firstIdx]
+        }
+
+        const tempItem = p.build()
+        tempItem.sid = item.sid
+        tempItem.score = item.score
+        tempItem.date = item.date
+        tempItem.info = item.info
+
+        const html = await p.tryFetch(tempItem.sid)
+        if (html == "") return PM.next()
+        const ok = await p.tryParse(html, tempItem)
+        console.log(tempItem, "network")
+        if (ok) VM.updateItem(tempItem, 0, 0, false)
+        PM.next()
+    }
+
+    private static next() {
+        PM.queue.shift()
+        if (PM.queue.length != 0) PM.tryUpdate()
     }
 }

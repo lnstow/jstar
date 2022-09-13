@@ -1,7 +1,7 @@
 const ban = -5
 const mark = 10
 type iScore = 1 | 2 | 3 | 4 | 0 | typeof ban | typeof mark
-const enum ItemType { JaDb, Jg0, JaBs, JaLb }
+const enum ItemType { JaDb, Jg0, JaBs, JaLb, JaMoo }
 // 不要在 Item或List 中定义非静态方法，
 // 因为从数据库读取出来的只有属性，
 // 只能调用 Item或List 类的静态方法
@@ -9,7 +9,7 @@ interface Item {
     sid: string
     t?: ItemType
     score: iScore
-    date: string    // 排序时也更新
+    date: string
     info: string
 }
 interface List {
@@ -17,7 +17,7 @@ interface List {
     arr: string[]
     /** expand */
     e: 0 | 1
-    date: string    // 插入新元素也更新
+    date: string
     info: string
 }
 function isItem(data: Item | List): data is Item {
@@ -32,6 +32,9 @@ function getTime(): string {
 
 class JaDb implements Item {
     t: ItemType = ItemType.JaDb
+    c?: string
+    c2?: never
+    v?: string
     constructor(public sid: string, public score: iScore = 0,
         public info = "", public date = getTime()) {
 

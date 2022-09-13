@@ -25,3 +25,16 @@
 .sortable-chosen {
   background-color: #66BAB7;
 }
+
+.single-line {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  /* text-overflow: ellipsis; */
+}
+
+.multi-line {
+  line-height: 1.3em !important;
+  max-height: 4.3em !important;
+  overflow: hidden !important;
+  /* text-overflow: ellipsis; */
+}

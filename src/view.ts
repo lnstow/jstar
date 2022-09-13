@@ -56,15 +56,13 @@ const lightColor = {
 }
 const uic = {
     dialogWidth: 700,
-    cardWidth: 140,
-    cardHeight: 260,
+    cardWidth: 120,
 }
 
 window.addEventListener("focus", VM.checkUpdateTime)
 // window.addEventListener("error", VM.genericErrorHint)
 
 window.addEventListener("load", function () {
-    initView()
     vue = new Vue({
         el: '#app',
         data: function () {
@@ -95,6 +93,7 @@ window.addEventListener("load", function () {
                     show: false,
                     search: false,
                     token: "",
+                    video: false,
                 },
                 toast: {
                     show: false,
@@ -145,11 +144,12 @@ window.addEventListener("load", function () {
             },
             // showSearchDialog -> searchData -> requestEditDialog 
             // -> show(Item/List)Dialog -> submitData
-            showSearchDialog: function (row: number, requestSearchItem: boolean) {
+            showSearchDialog: function (row: number,
+                requestSearchItem: boolean, col = row) {
                 vue.clickInfo[0] = row
                 // 下一行是为了，搜索列表时，记录首次点击的行数，因为
                 // 创建多个列表时，需要保持每次插入位置都在当前行下面
-                vue.clickInfo[1] = row
+                tempIdx = col
                 vue.requestSearchItem = requestSearchItem
                 vue.searchText = null
                 vue.searchResult = []
@@ -158,18 +158,19 @@ window.addEventListener("load", function () {
             searchData: function () {
                 vue.localLoading = true
                 vue.searchResult = []
-                debounce(() => {
-                    vue.searchResult = vue.requestSearchItem ?
-                        VM.searchItem(vue.searchText, vue.clickInfo[0]) :
-                        VM.searchList(vue.searchText)
-                    vue.localLoading = false
-                })
+                debounce(vue.searchDataDelay)
+            },
+            searchDataDelay() {
+                vue.searchResult = vue.requestSearchItem ?
+                    VM.searchItem(vue.searchText, vue.clickInfo[0]) :
+                    VM.searchList(vue.searchText)
+                vue.localLoading = false
             },
             requestEditDialog: function (data: ItemSearchResult | ListSearchResult) {
                 switch (data.level) {
                     case DataLevel.ItemNone:
                     case DataLevel.ItemInDb:
-                        vue.showItemDialog(vue.clickInfo[0], -1, data)
+                        vue.showItemDialog(vue.clickInfo[0], tempIdx + 1, data)
                         break
                     case DataLevel.ItemInList:
                         const list = vue.orderList[vue.clickInfo[0]] as List
@@ -178,7 +179,7 @@ window.addEventListener("load", function () {
                         vue.showItemDialog(vue.clickInfo[0], col, data)
                         break
                     case DataLevel.ListNone:
-                        vue.showListDialog(vue.clickInfo[1] + 1, data)
+                        vue.showListDialog(tempIdx + 1, data)
                         break
                     case DataLevel.ListInMap:
                         const row = VM.ALL_DATA.orderMap
@@ -193,13 +194,13 @@ window.addEventListener("load", function () {
                 const cb = vue.saveDataCallback
                 switch (vue.clickInfo[2] as DataLevel) {
                     case DataLevel.ItemNone:
-                        VM.insertItem(data, row, 0).then(cb)
+                        VM.insertItem(data, row, col).then(cb)
                         break
                     case DataLevel.ItemInList:
                         VM.updateItem(data, row, col).then(cb)
                         break
                     case DataLevel.ItemInDb:
-                        VM.insertItem(data, row, 0).then(cb)
+                        VM.insertItem(data, row, col).then(cb)
                         break
                     case DataLevel.ListNone:
                         VM.insertList(data, row).then(cb)
@@ -256,6 +257,7 @@ window.addEventListener("load", function () {
             },
             aboutData(opt: string) {
                 switch (opt) {
+                    case "sid": copyText(vue.newItem.sid); break
                     case "upload": VM.newHint("本地数据 将覆盖 远程数据",
                         ["确定上传", VM.uploadData], VM.hintCancelBtn)
                         break
@@ -280,6 +282,9 @@ window.addEventListener("load", function () {
                     })
                 }
             },
+            transform(item: Item, key: keyof Item, value: string): string {
+                return PM.parseItemProp(item, key, value)
+            },
         },
         computed: {
             uic() { return uic },
@@ -303,6 +308,7 @@ window.addEventListener("load", function () {
     test()
 })
 
+let tempIdx = 0
 let tempData: any
 function restoreSearchResult(otherDialogShow: boolean) {
     if (vue.showSearch) {
@@ -359,7 +365,6 @@ function newToast(msg: string, btn: BtnCallback | null = null) {
 }
 
 function test() {
-    // todo 重新设计卡片，开关=元素后方插入，如何在item后面位置插入
     let time = 1
 
     // setTimeout(() => {
@@ -385,16 +390,16 @@ function test() {
     }, time++ * 1000);
 }
 
-function initView() {
-    Vue.component("score-radio", {
-        props: ["score", "color"],
-        template: `<v-radio :value="score" :color="color">
-        <template v-slot:label>
-            <span :style="{color: color}"><slot></slot></span>
-        </template>
-    </v-radio>`
-    })
-}
+// function initView() {
+//     Vue.component("score-radio", {
+//         props: ["score", "color"],
+//         template: `<v-radio :value="score" :color="color">
+//         <template v-slot:label>
+//             <span :style="{color: color}"><slot></slot></span>
+//         </template>
+//     </v-radio>`
+//     })
+// }
 
 /*
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀ ⣀⣀⡀⠀⠀⣀⡀⠀⠀⠀⠀⠀⠀⠀

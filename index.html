@@ -26,7 +26,7 @@
     <v-app id="app">
         <v-container>
             <!-- todo  align="center" -->
-            <draggable direction="vertical" class="my-6" :delay=editMode?0:300 animation=150 :value="orderList"
+            <draggable direction="vertical" class="my-6" :delay=editMode?150:300 animation=150 :value="orderList"
                 @end="moveEnd" @change="moveList" force-fallback=true scroll-sensitivity=150 scroll-speed=30
                 swap-threshold=0.4>
                 <v-row v-for="(list,row) in orderList" :key="list.name" align-content="start" justify="start">
@@ -43,7 +43,7 @@
                                 <v-icon>mdi-playlist-plus</v-icon>
                             </v-btn>
                             <v-btn class="ml-3 " :color="colorss.primary" fab x-small
-                                @click.stop="showSearchDialog(row,true)">
+                                @click.stop="showSearchDialog(row,true,0)">
                                 <v-icon>mdi-plus</v-icon>
                             </v-btn>
 
@@ -67,7 +67,7 @@
 
                         <!-- 收起列表 -->
                         <v-col cols="12" v-if="!list.e">
-                            <draggable direction="horizontal" group="item" :delay=editMode?0:300 animation=150
+                            <draggable direction="horizontal" group="item" :delay=editMode?150:300 animation=150
                                 :value="orderItem[row]" @end="moveEnd" @change="drop=>moveItem(row,drop)"
                                 swap-threshold=0.4 force-fallback=true scroll-sensitivity=150 scroll-speed=30
                                 tag="v-row" :component-data="{attrs:{dense:true}}">
@@ -88,7 +88,7 @@
                         <v-col cols="12" v-if="list.e">
 
                             <!-- todo align="stretch"，dense缩小距离，调整卡片阴影（使用card自带的hover属性） -->
-                            <draggable direction="horizontal" group="item" :delay=editMode?0:300 animation=150
+                            <draggable direction="horizontal" group="item" :delay=editMode?150:300 animation=150
                                 :value="orderItem[row]" @end="moveEnd" @change="drop=>moveItem(row,drop)"
                                 swap-threshold=0.4 force-fallback=true scroll-sensitivity=150 scroll-speed=30
                                 tag="v-row" :component-data="{attrs:{dense:true}}">
@@ -97,29 +97,32 @@
 
                                     <v-hover v-if="true" v-slot:default="{ hover }">
                                         <v-card :color="colorss[item.score]" ripple class="transition-swing"
-                                            :elevation="hover ? 24 : 6" @click="showItemDialog(row,col)">
-                                            <!-- <v-alert width="100%" height="100%" border="left" :color="colorss[item.score]"
-                                    colored-border class="pa-0 ma-0"> -->
+                                            :elevation="hover ? 24 : 6" @click="showItemDialog(row,col)"
+                                            :width="uic.cardWidth">
+                                            <v-img v-if="networkMode&&item.t==0" aspect-ratio=0.7 width=120 height=170
+                                                :src="transform(item,'c2',item.c)">
+                                            </v-img>
                                             <v-btn v-show="editMode" :color="colorss[10]" fab x-small absolute
                                                 style="right: -10px;top: -10px;" @click.stop="deleteItem(row,col)">
                                                 <v-icon>mdi-close</v-icon>
                                             </v-btn>
 
-                                            <v-card-title style="overflow-y: hidden;height:50px;">
-                                                {{item.sid}}
-                                            </v-card-title>
-                                            <v-card-subtitle>
-                                                <br>
-                                                {{item.info}}
-                                            </v-card-subtitle>
-                                            <!-- <v-card-actions>
-                                                    <v-btn @click.stop="showSearchDialog(row,true)">+Item</v-btn>
-                                                </v-card-actions> -->
-                                            <v-card-text>
-                                                <br>
-                                                {{item.date}}
-                                            </v-card-text>
-                                            <!-- </v-alert> -->
+                                            <template v-if="networkMode&&item.t==0">
+                                                <p class="single-line ma-1 font-weight-medium">
+                                                    {{item.sid}} / {{item.info}}</p>
+                                            </template>
+                                            <template v-else>
+                                                <v-card-title class="single-line">
+                                                    {{item.sid}}
+                                                </v-card-title>
+                                                <v-card-subtitle>
+                                                    <p class="multi-line ma-0">{{item.info}}</p>
+                                                    <!-- <br> -->
+                                                </v-card-subtitle>
+                                            </template>
+                                            <v-icon small class="float-right mr-n2"
+                                                @click.stop="showSearchDialog(row,true,col)">mdi-plus</v-icon>
+                                            <p class="ma-0 text-caption text-center text--secondary">{{item.date}}</p>
                                         </v-card>
                                     </v-hover>
                                 </v-col>
@@ -168,7 +171,7 @@
                 <v-card>
                     <v-sheet :color="colorss.primary" height=56>
                         <v-card-title>
-                            <span class="text-h5">{{dialogTitle()}}</span>
+                            <span class="text-h5 single-line">{{dialogTitle()}}</span>
                         </v-card-title>
                     </v-sheet>
                     <v-card-text>
@@ -199,10 +202,24 @@
             <v-dialog :width="uic.dialogWidth" v-model="showItem" :retain-focus="false">
                 <v-card>
                     <v-sheet :color="colorss[newItem.score]" height=56>
+                        <v-icon dense class="float-right mt-5 mr-4" @click.stop="aboutData('sid')">
+                            mdi-content-copy</v-icon>
                         <v-card-title>
-                            <span class="text-h5">{{dialogTitle()}}</span>
+                            <span class="text-h5 single-line">{{dialogTitle()}}</span>
                         </v-card-title>
                     </v-sheet>
+                    <template v-if="networkMode&&newItem.t==0">
+                        <div class="float-right pt-6 pr-6 text-h5">
+                            <p><a :href="transform(newItem,'a1')" target="_blank">javdb</a></p>
+                            <p><a :href="transform(newItem,'a2')" target="_blank">finder</a></p>
+                            <p><a :href="transform(newItem,'a3')" target="_blank">miss</a></p>
+                            <p><a :href="transform(newItem,'a4')" target="_blank">jable</a></p>
+                            <p><a :href="transform(newItem,'a5')" target="_blank">netf</a></p>
+                            <p><a :href="transform(newItem,'a6')" target="_blank">sup</a></p>
+                        </div>
+                        <v-img :src="transform(newItem,'c',newItem.c)" @click="uis.video=true" max-width=580>
+                        </v-img>
+                    </template>
                     <v-card-text>
                         <br>
                         <v-row>
@@ -243,6 +260,11 @@
                         </v-row>
                     </v-card-text>
                 </v-card>
+            </v-dialog>
+
+            <v-dialog v-model="uis.video" max-width=680>
+                <video v-if="uis.video" autoplay playsinline controls :src="transform(newItem,'v',newItem.v)">
+                </video>
             </v-dialog>
 
             <v-dialog persistent width=400 :value="hint.message!=''">
@@ -345,17 +367,6 @@
             </v-snackbar>
         </v-container>
     </v-app>
-    <div class="item">
-        <div class="item-img"></div>
-        <div class="item-id"></div>
-        <div class="item-title"></div>
-        <div class="item-date"></div>
-        <div class="item-score"></div>
-        <div class="itme-copy"></div>
-        <div class="item-open"></div>
-        <div class="item-img-big"></div>
-        <div class="item-video"></div>
-    </div>
 </body>
 
 </html>

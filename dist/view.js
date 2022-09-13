@@ -34,13 +34,11 @@ const lightColor = {
 };
 const uic = {
     dialogWidth: 700,
-    cardWidth: 140,
-    cardHeight: 260,
+    cardWidth: 120,
 };
 window.addEventListener("focus", VM.checkUpdateTime);
 // window.addEventListener("error", VM.genericErrorHint)
 window.addEventListener("load", function () {
-    initView();
     vue = new Vue({
         el: '#app',
         data: function () {
@@ -71,6 +69,7 @@ window.addEventListener("load", function () {
                     show: false,
                     search: false,
                     token: "",
+                    video: false,
                 },
                 toast: {
                     show: false,
@@ -127,11 +126,11 @@ window.addEventListener("load", function () {
             },
             // showSearchDialog -> searchData -> requestEditDialog 
             // -> show(Item/List)Dialog -> submitData
-            showSearchDialog: function (row, requestSearchItem) {
+            showSearchDialog: function (row, requestSearchItem, col = row) {
                 vue.clickInfo[0] = row;
                 // 下一行是为了，搜索列表时，记录首次点击的行数，因为
                 // 创建多个列表时，需要保持每次插入位置都在当前行下面
-                vue.clickInfo[1] = row;
+                tempIdx = col;
                 vue.requestSearchItem = requestSearchItem;
                 vue.searchText = null;
                 vue.searchResult = [];
@@ -140,18 +139,19 @@ window.addEventListener("load", function () {
             searchData: function () {
                 vue.localLoading = true;
                 vue.searchResult = [];
-                debounce(() => {
-                    vue.searchResult = vue.requestSearchItem ?
-                        VM.searchItem(vue.searchText, vue.clickInfo[0]) :
-                        VM.searchList(vue.searchText);
-                    vue.localLoading = false;
-                });
+                debounce(vue.searchDataDelay);
+            },
+            searchDataDelay() {
+                vue.searchResult = vue.requestSearchItem ?
+                    VM.searchItem(vue.searchText, vue.clickInfo[0]) :
+                    VM.searchList(vue.searchText);
+                vue.localLoading = false;
             },
             requestEditDialog: function (data) {
                 switch (data.level) {
                     case 0 /* ItemNone */:
                     case 2 /* ItemInDb */:
-                        vue.showItemDialog(vue.clickInfo[0], -1, data);
+                        vue.showItemDialog(vue.clickInfo[0], tempIdx + 1, data);
                         break;
                     case 1 /* ItemInList */:
                         const list = vue.orderList[vue.clickInfo[0]];
@@ -160,7 +160,7 @@ window.addEventListener("load", function () {
                         vue.showItemDialog(vue.clickInfo[0], col, data);
                         break;
                     case 3 /* ListNone */:
-                        vue.showListDialog(vue.clickInfo[1] + 1, data);
+                        vue.showListDialog(tempIdx + 1, data);
                         break;
                     case 4 /* ListInMap */:
                         const row = VM.ALL_DATA.orderMap
@@ -174,13 +174,13 @@ window.addEventListener("load", function () {
                 const cb = vue.saveDataCallback;
                 switch (vue.clickInfo[2]) {
                     case 0 /* ItemNone */:
-                        VM.insertItem(data, row, 0).then(cb);
+                        VM.insertItem(data, row, col).then(cb);
                         break;
                     case 1 /* ItemInList */:
                         VM.updateItem(data, row, col).then(cb);
                         break;
                     case 2 /* ItemInDb */:
-                        VM.insertItem(data, row, 0).then(cb);
+                        VM.insertItem(data, row, col).then(cb);
                         break;
                     case 3 /* ListNone */:
                         VM.insertList(data, row).then(cb);
@@ -243,6 +243,9 @@ window.addEventListener("load", function () {
             },
             aboutData(opt) {
                 switch (opt) {
+                    case "sid":
+                        copyText(vue.newItem.sid);
+                        break;
                     case "upload":
                         VM.newHint("本地数据 将覆盖 远程数据", ["确定上传", VM.uploadData], VM.hintCancelBtn);
                         break;
@@ -277,6 +280,9 @@ window.addEventListener("load", function () {
                     });
                 }
             },
+            transform(item, key, value) {
+                return PM.parseItemProp(item, key, value);
+            },
         },
         computed: {
             uic() { return uic; },
@@ -298,6 +304,7 @@ window.addEventListener("load", function () {
     init();
     test();
 });
+let tempIdx = 0;
 let tempData;
 function restoreSearchResult(otherDialogShow) {
     if (vue.showSearch) {
@@ -352,7 +359,6 @@ function newToast(msg, btn = null) {
     vue.toast.show = true;
 }
 function test() {
-    // todo 重新设计卡片，开关=元素后方插入，如何在item后面位置插入
     let time = 1;
     // setTimeout(() => {
     //     VM.VUE_DATA.orderItem[0][0].score = 6;
@@ -373,16 +379,6 @@ function test() {
         // VM.VUE_DATA.orderItem[0][0].score = 6
         Github.test();
     }, time++ * 1000);
-}
-function initView() {
-    Vue.component("score-radio", {
-        props: ["score", "color"],
-        template: `<v-radio :value="score" :color="color">
-        <template v-slot:label>
-            <span :style="{color: color}"><slot></slot></span>
-        </template>
-    </v-radio>`
-    });
 }
 function removedIndex(result) {
     if (result.moved)

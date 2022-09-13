@@ -47,7 +47,8 @@ class VM {
         if (error instanceof DOMException && error.name === "AbortError")
             VM.newHint("网络请求超时，请确保你能访问 Github ，然后重试")
         else if (error instanceof TypeError && error.message === "Failed to fetch")
-            VM.newHint("网络错误或跨域访问被禁止，要允许跨域访问，请查看帮助文档")
+            VM.newHint("网络错误或跨域访问被禁止，要允许跨域访问，请查看帮助文档",
+                ["去看看", Remote.gotoProject], ["还是算了", VM.emptyFunc])
         else VM.newHint(msg)
         return false
     }
@@ -86,16 +87,14 @@ class VM {
         VM.updateTime = Repo.saveUpdateTime()
 
         if (orderMap.length == 0) {
-            await VM.insertList(new NormalList("点我查看列表简介"), 0)
-            await VM.insertItem(new NormalItem("itemA", 0,
-                `点我输入附带信息
-                \n点
-                击右下角按钮保存\n点击弹窗外部可以取消修改`), 0)
-            await VM.insertItem(new NormalItem("itemB", 0,
-                "点我打开item，右下角查看教程"), 0)
+            await VM.insertList(new NormalList("点我查看列表简介", [],
+                "如何使用？请查看下面三个元素的说明"), 0)
+            await VM.insertItem(new NormalItem("itemA", 2,
+                "点我输入附带信息\n点击右下角按钮保存\n点击弹窗外部可以取消修改"), 0)
+            await VM.insertItem(new NormalItem("itemB", 1,
+                "整个网页的右下角有菜单图标，里面点击“帮助”查看如何多端同步数据"), 0, 1)
             await VM.insertItem(new NormalItem("itemC", 0,
-                "排序，介绍右下角图标。现在，学完可以删除啦"), 0)
-            // todo 用法//是什么 what is
+                "长按元素可排序，编辑模式可以删除列表，点每行第二个图标新建列表"), 0, 2)
             vue.uis.show = true
         }
 
@@ -134,7 +133,7 @@ class VM {
         if (!VM.move) list.date = getTime()
         try {
             const redundant = list.arr.indexOf(item.sid)
-            item.date = getTime()
+            if (!VM.move) item.date = getTime()
             if (VM.move) Repo.saveToDB(ITEM_TABLE, item)
             else await Repo.saveToDB(ITEM_TABLE, item)
 
@@ -145,7 +144,10 @@ class VM {
 
             if (VM.itemRef.has(item.sid))
                 VM.responsiveCopy(VM.ALL_DATA.itemTable[item.sid], item)
-            else VM.ALL_DATA.itemTable[item.sid] = item
+            else {
+                VM.ALL_DATA.itemTable[item.sid] = item
+                PM.push(item)
+            }
 
             item = VM.ALL_DATA.itemTable[item.sid]
             VM.VUE_DATA.orderItem[row].splice(col, 0, item)
@@ -160,9 +162,11 @@ class VM {
         return true
     }
 
-    static async updateItem(item: Item, row: number, col: number): Promise<boolean> {
+    static async updateItem(item: Item, row: number, col: number, time = true)
+        : Promise<boolean> {
         if (!VM.checkUpdateTime()) return false
-        item.date = getTime()
+        if (time) item.date = getTime()
+        else if (!VM.itemRef.has(item.sid)) return false
         try {
             await Repo.saveToDB(ITEM_TABLE, item)
             // VM.responsiveCopy(VM.VUE_DATA.orderItem[row][col], item)
@@ -218,7 +222,6 @@ class VM {
 
                 const items = VM.VUE_DATA.orderItem[fr]
                 items.splice(tc, 0, items.splice(fc, 1)[0])
-                VM.updateItem(items[tc], tr, tc)
                 Repo.saveToDB(LIST_TABLE, list)
                 return true
             } else {

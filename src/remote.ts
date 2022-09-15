@@ -273,7 +273,7 @@ class PM {
                             if (item.c == undefined)
                                 return 'https://pics.dmm.co.jp/mono/movie/n/now_printing/now_printing.jpg'
                             else {
-                                const v = item.sid.replace('-', '')
+                                const v = item.sid.toLowerCase().replace('-', '')
                                 return `https://pics.dmm.co.jp/mono/movie/adult/${v}/${v}ps.jpg`
                             }
                         }

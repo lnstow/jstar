@@ -310,8 +310,8 @@ class PM {
 
                 i1 = html.indexOf('g>', i2 + 10) + 2
                 i2 = html.indexOf('<', i1)
-                if (html.slice(i1, i2).toLowerCase()
-                    != temp.sid.toLowerCase()) return false
+                if (html.slice(i1, i2)
+                    != temp.sid.toUpperCase()) return false
 
                 temp.c = cov.slice(cov.indexOf('rs/') + 3, cov.lastIndexOf('.'))
                 html = await Remote.fetch(`${this.domain}${url}`)

@@ -216,6 +216,21 @@ window.addEventListener("load", function () {
             iconCreate(level = vue?.clickInfo?.[2]) {
                 return level != 1 /* ItemInList */ && level != 4 /* ListInMap */;
             },
+            switchNextItem(next) {
+                let row = vue.clickInfo[0], col = vue.clickInfo[1];
+                col += next ? 1 : -1;
+                if (col == vue.orderList[row].arr.length) {
+                    if (++row == vue.orderList.length)
+                        return;
+                    col = 0;
+                }
+                else if (col == -1) {
+                    if (--row == -1)
+                        return;
+                    col = vue.orderList[row].arr.length - 1;
+                }
+                vue.showItemDialog(row, col);
+            },
             switchListExpand: function (row) {
                 const list = vue.orderList[row];
                 list.e ^= 1;

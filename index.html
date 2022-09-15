@@ -120,7 +120,7 @@
                                                     <!-- <br> -->
                                                 </v-card-subtitle>
                                             </template>
-                                            <v-icon small class="float-right mr-n2"
+                                            <v-icon small class="float-right mr-n3"
                                                 @click.stop="showSearchDialog(row,true,col)">mdi-plus</v-icon>
                                             <p class="ma-0 text-caption text-center text--secondary">{{item.date}}</p>
                                         </v-card>
@@ -248,6 +248,17 @@
                                 <score-radio :score="-5" :color="colorss[-5]">黑名单</score-radio>
                             </v-radio-group> -->
                         <v-row>
+                            <v-col cols="auto" v-show="!showSearch">
+                                <v-btn class="mt-2 mr-1" :color="colorss.primary" outlined
+                                    @click.stop="switchNextItem(false)">
+                                    <v-icon large>mdi-chevron-left</v-icon>
+                                </v-btn>
+                                <v-btn class="mt-2" :color="colorss.primary" outlined
+                                    @click.stop="switchNextItem(true)">
+                                    <v-icon large>mdi-chevron-right</v-icon>
+                                    <!-- <v-icon dense large color="white">mdi-chevron-right</v-icon> -->
+                                </v-btn>
+                            </v-col>
                             <v-spacer></v-spacer>
                             <v-col cols="auto">
                                 <!-- <v-btn text large @click="hideEditDialog()"> 取消 </v-btn> -->
@@ -284,10 +295,10 @@
             </v-dialog>
 
             <!-- 搜索排序 -->
-            <!-- <v-btn class="ma-6" :color="colorss.primary" fixed fab right bottom large
-                    @click.stop="uis.search=true" style="bottom:92px">
-                    <v-icon color="white">mdi-magnify</v-icon>
-                </v-btn> -->
+            <!-- <v-btn class="ma-6" :color="colorss.primary" fixed fab right bottom large @click.stop="uis.search=true"
+                style="bottom:92px">
+                <v-icon color="white">mdi-magnify</v-icon>
+            </v-btn> -->
 
             <!-- 底部设置 -->
             <v-btn class="ma-6" :color="colorss.primary" fixed fab right bottom large @click.stop="uis.show=true">

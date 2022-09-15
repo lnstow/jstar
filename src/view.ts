@@ -230,6 +230,18 @@ window.addEventListener("load", function () {
             iconCreate(level: DataLevel = vue?.clickInfo?.[2]): boolean {
                 return level != DataLevel.ItemInList && level != DataLevel.ListInMap
             },
+            switchNextItem(next: boolean) {
+                let row = vue.clickInfo[0], col = vue.clickInfo[1]
+                col += next ? 1 : -1
+                if (col == vue.orderList[row].arr.length) {
+                    if (++row == vue.orderList.length) return
+                    col = 0
+                } else if (col == -1) {
+                    if (--row == -1) return
+                    col = vue.orderList[row].arr.length - 1
+                }
+                vue.showItemDialog(row, col)
+            },
             switchListExpand: function (row: number) {
                 const list = vue.orderList[row] as List
                 list.e ^= 1

@@ -159,7 +159,7 @@ class Repo {
     }
     static loadOrderMap() {
         const orderMap = localStorage.getItem(Repo.lsKey.map);
-        return orderMap == null ? [] : orderMap.split(globalName.listSeparator);
+        return orderMap ? orderMap.split(globalName.listSeparator) : [];
     }
     static saveUpdateTime() {
         const time = new Date().getTime();

@@ -217,7 +217,7 @@ class Repo {
 
     static loadOrderMap(): string[] {
         const orderMap = localStorage.getItem(Repo.lsKey.map)
-        return orderMap == null ? [] : orderMap.split(globalName.listSeparator)
+        return orderMap ? orderMap.split(globalName.listSeparator) : []
     }
 
     static saveUpdateTime(): number {

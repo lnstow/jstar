@@ -156,8 +156,8 @@ window.addEventListener("load", function () {
                 vue.showSearch = true
             },
             searchData: function () {
-                vue.localLoading = true
-                vue.searchResult = []
+                if (vue.localLoading != true) vue.localLoading = true
+                if (vue.searchResult.length != 0) vue.searchResult = []
                 debounce(vue.searchDataDelay)
             },
             searchDataDelay() {
@@ -234,10 +234,16 @@ window.addEventListener("load", function () {
                 let row = vue.clickInfo[0], col = vue.clickInfo[1]
                 col += next ? 1 : -1
                 if (col == vue.orderList[row].arr.length) {
-                    if (++row == vue.orderList.length) return
+                    while (++row < vue.orderList.length)
+                        if (vue.orderList[row].arr.length > 0)
+                            break
+                    if (row == vue.orderList.length) return
                     col = 0
                 } else if (col == -1) {
-                    if (--row == -1) return
+                    while (--row > -1)
+                        if (vue.orderList[row].arr.length > 0)
+                            break
+                    if (row == -1) return
                     col = vue.orderList[row].arr.length - 1
                 }
                 vue.showItemDialog(row, col)

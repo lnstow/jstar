@@ -1,6 +1,6 @@
 # jstar
 
-## [项目主页](https://lnstow.github.io/jstar)
+## [项目主页](https://lnstow.github.io/jstar/)
 
 ## 使用远程同步（可选功能）
 

@@ -6,6 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>jaStar</title>
+
+    <link rel="icon" href="https://avatars.githubusercontent.com/u/27285361?v=4" type="image/png">
     <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
@@ -217,8 +219,8 @@
                             <p><a :href="transform(newItem,'a5')" target="_blank">netf</a></p>
                             <p><a :href="transform(newItem,'a6')" target="_blank">sup</a></p>
                         </div>
-                        <v-img :src="transform(newItem,'c',newItem.c)" @click="uis.video=true" max-width=580>
-                        </v-img>
+                        <v-img :src="transform(newItem,'c',newItem.c)" @click="uis.video=true" max-width=580
+                            aspect-ratio=1.487 contain></v-img>
                     </template>
                     <v-card-text>
                         <br>
@@ -273,7 +275,7 @@
                 </v-card>
             </v-dialog>
 
-            <v-dialog v-model="uis.video" max-width=680>
+            <v-dialog v-model="uis.video" max-width=880>
                 <video v-if="uis.video" autoplay playsinline controls :src="transform(newItem,'v',newItem.v)">
                 </video>
             </v-dialog>

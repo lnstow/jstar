@@ -316,7 +316,10 @@ PM.parserArr = [
                             return `https://pics.dmm.co.jp/mono/movie/adult/${v}/${v}ps.jpg`;
                         }
                     }
-                    const v = item.v.slice(item.v.lastIndexOf('/') + 1);
+                    let v = item.v.slice(item.v.lastIndexOf('/') + 1);
+                    if (v.length >= 5 && v[v.length - 4] != '0') {
+                        v = v.slice(0, v.length - 3) + '00' + v.slice(v.length - 3);
+                    }
                     return `https://pics.dmm.co.jp/digital/video/${v}/${v}ps.jpg`;
                 case 'c': return `https://c0.jdbstatic.com/covers/${value}.jpg`;
                 case 'v': {
@@ -361,16 +364,32 @@ PM.parserArr = [
                 return false;
             i1 = html.indexOf('ysi');
             if (i1 == -1)
-                return false;
+                return await this.parseCorsVideo(temp);
             i1 = html.indexOf('src', i1 + 10) + 5;
             i2 = html.indexOf('"', i1);
             const v = html.slice(i1, i2);
-            if (v.length == 0 || !v.startsWith("//")
+            if (v.length == 0 || !v.startsWith("//") || !v.endsWith("mp4"))
+                return await this.parseCorsVideo(temp);
+            temp.v = v.slice(v.indexOf('pv/') + 3, v.lastIndexOf('/'));
+            return true;
+        },
+        async parseCorsVideo(temp) {
+            const html = await Remote.fetch(`https://www.r18.com/common/search/searchword=${temp.sid}/`);
+            if (html == "")
+                return true;
+            let i1 = 0, i2 = 0;
+            i1 = html.indexOf('w=');
+            if (i1 == -1)
+                return true;
+            i1 += 3;
+            i2 = html.indexOf('"', i1);
+            const v = html.slice(i1, i2);
+            if (v.length == 0 || !v.startsWith("htt")
                 || !v.endsWith("mp4"))
                 return true;
             temp.v = v.slice(v.indexOf('pv/') + 3, v.lastIndexOf('/'));
             return true;
-        },
+        }
     }
 ];
 PM.queue = [];
